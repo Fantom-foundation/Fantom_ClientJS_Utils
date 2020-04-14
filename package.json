@@ -1,0 +1,30 @@
+{
+  "name": "fantom-ledgerjs",
+  "description": "Fantom Ledger Hardware Wallet High Level API",
+  "version": "0.1.7",
+  "files": [
+    "lib"
+  ],
+  "main": "fantom-nano.js",
+  "repository":  "github:Fantom-foundation/Fantom_LedgerJS",
+  "homepage": "https://github.com/Fantom-foundation/Fantom_LedgerJS",
+  "keywords": [
+    "Ledger",
+    "LedgerWallet",
+    "Fantom",
+    "FTM",
+    "NanoS",
+    "Wallet"
+  ],
+  "author": "Jiri Malek <jirka.malek@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "u2f-api": "^1.1.1"
+  },
+  "devDependencies": {
+  },
+  "scripts": {
+    "clean": "",
+    "build": "",
+  }
+}
