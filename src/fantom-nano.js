@@ -6,133 +6,96 @@
  * @version 0.1.7
  * @licese MIT
  */
-import {sign, ErrorNames} from "u2f-api";
+import utils from "./utils";
 
-// U2F_TIMEOUT is the number of seconds we wait for U2F to kick in
-const U2F_TIMEOUT = 30;
+// CLA specified service class used by Fantom Ledger application
+const CLA = 0xe0;
 
-// U2F_CHALLENGE is an arbitrary challenge used in U2F protocol.
-// The Ledger U2F proxy ignores it since the actual APDU payload
-// is sent via the U2F key handle.
-const U2F_CHALLENGE = Buffer.from(
-    "0000000000000000000000000000000000000000000000000000000000000000",
-    "hex"
-);
+// INS specifies instructions supported by the Fanto Ledger app
+const INS = {
+    GET_VERSION: 0x01,
+    GET_PUBLIC_KEY: 0x10,
+    GET_ADDRESS: 0x11,
+    SIGN_TRANSACTION: 0x20
+};
 
-// U2F_FANTOM_MAGIC is an internal scramble key, recognized
-// by the Ledger APDU proxy. It allows the APDU packet to be delivered
-// correcly to the designated Fantom Nano Ledger app only. Other apps
-// would receive an invalid APDU and would not accidentaly process it.
-const U2F_FANTOM_MAGIC = Buffer.from("FTM", 'utf-8');
+// ErrorCodes exports list of errors produced by the Fantom Ledger app
+// in case of unexpected event.
+export const ErrorCodes = {
+    // Bad request header.
+    ERR_BAD_REQUEST_HEADER: 0x6E01,
 
-// remember the origin
-let origin = "https://localhost";
+    // Unknown service class CLA received.
+    ERR_UNKNOWN_CLA: 0x6E02,
 
-/**
- * ToSafe converts input from regular base64 value to safe value
- * by replacing special characters with web safe ones.
- *
- * @param {string} input
- * @returns {string}
- */
-const toSafe = (input) => input
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
+    // Unknown instruction arrived.
+    ERR_UNKNOWN_INS: 0x6E03,
 
-/**
- * FromSafe converts input from safe base64 back to regular
- * base64 by replacing special characters with those expected in base64.
- *
- * @param {string} input
- * @returns {string}
- */
-const fromSafe = (input) => input
-    .replace(/-/g, "+")
-    .replace(/_/g, "/") + "=="
-    .substring(0, (3 * input.length) % 4);
+    // Request is not valid in the current context.
+    ERR_INVALID_STATE: 0x6E04,
 
-/**
- * ScrambleApdu implements naive APDU payload encryption using
- * XOR function and preconfigured U2F_FANTOM_MAGIC
- * to ensure basic app isolation.
- *
- * @param {Buffer} apdu
- * @param {Buffer} key
- * @returns {Buffer}
- */
-function scrambleApdu(apdu, key) {
-    const result = Buffer.alloc(apdu.length);
-    for (let i = 0; i < apdu.length; i++) {
-        result[i] = apdu[i] ^ key[i % key.length];
-    }
-    return result;
-}
+    // Request contains invalid parameters P1, P2, or Lc.
+    ERR_INVALID_PARAMETERS: 0x6E05,
 
-/**
- * Send transmits APDU message to Ledger via U2F protocol
- * and processed the response when available.
- *
- * @param {Buffer} apdu
- * @param {number} timeout
- * @returns {Promise<Buffer>}
- */
-function send(apdu, timeout) {
-    // prep sign request (u2f-api sign request interface)
-    const sigRequest = {
-        version: "U2F_V2",
-        appId: origin,
-        challenge: toSafe(U2F_CHALLENGE.toString("base64")),
-        keyHandle: toSafe(wrapApdu(apdu, U2F_FANTOM_MAGIC).toString("base64"))
-    };
+    // Request contains invalid payload structure, or content.
+    ERR_INVALID_DATA: 0x6E06,
 
-    // log the action
-    console.log("Out APDU", "=>", apdu.toString("hex"));
+    // Action has been rejected by user.
+    ERR_REJECTED_BY_USER: 0x6E07,
 
-    // send to Ledger
-    return sign(sigRequest, timeout).then(response => {
-        // get the main thing we came for
-        const {signatureData} = response;
+    // Action rejected by security policy.
+    ERR_REJECTED_BY_POLICY: 0x6E08,
 
-        // do we have the right data?
-        if ("string" === typeof signatureData) {
-            // decode data
-            const data = Buffer.from(fromSafe(signatureData), "base64");
+    // Device is locked.
+    ERR_DEVICE_LOCKED: 0x6E09
+};
 
-            // return
-            const result = data.slice(5);
+// ErrorMessages exports list of english error messages associated
+// with corresponding error codes.
+export const ErrorMessages = {
+    // Bad request header.
+    [ErrorCodes.ERR_BAD_REQUEST_HEADER]: "Invalid request header sent to the hw wallet.",
 
-            // log
-            console.log("In APDU", "<=", result.toString("hex"));
-            return result;
-        } else {
-            // something wrong happened
-            throw response;
-        }
-    });
-}
+    // Unknown service class CLA received.
+    [ErrorCodes.ERR_UNKNOWN_CLA]: "Unknown, or rejected service class.",
 
-/**
- * Echange APDU buffer with the Ledger device and receive the response.
- *
- * @param {Buffer} apdu
- * @returns {Promise<Buffer>}
- */
-async function exchange(apdu) {
-    try {
-        // do the data exchange
-        return await send(apdu, U2F_TIMEOUT);
-    } catch (e) {
-        // detect U2F error
-        const isU2FError = (typeof e.metadata === "object" && e.metadata.hasOwnProperty("errorCode"));
-        if (isU2FError) {
-            // throw U2F error detail
-            throw new Error(ErrorNames[e.metadata.errorCode]);
-        } else {
-            // rethrow unknown error
+    // Unknown instruction arrived.
+    [ErrorCodes.ERR_UNKNOWN_INS]: "Unknown instruction sent.",
+
+    // Request is not valid in the current context.
+    [ErrorCodes.ERR_INVALID_STATE]: "Invalid instruction state.",
+
+    // Request contains invalid parameters P1, P2, or Lc.
+    [ErrorCodes.ERR_INVALID_PARAMETERS]: "Invalid instruction parameters.",
+
+    // Request contains invalid payload structure, or content.
+    [ErrorCodes.ERR_INVALID_DATA]: "Data sent with the request has not been recognized.",
+
+    // Action has been rejected by user.
+    [ErrorCodes.ERR_REJECTED_BY_USER]: "User rejected requested action.",
+
+    // Action rejected by security policy.
+    [ErrorCodes.ERR_REJECTED_BY_POLICY]: "Requested action is prohibited by security policy.",
+
+    // Device is locked.
+    [ErrorCodes.ERR_DEVICE_LOCKED]: "Can not proceed with the instruction, please unlock the device.",
+};
+
+// FantomNano manages the API code to the communication primitives
+export default class FantomNano {
+
+    async getVersion() {
+        // construct outgoing buffer fot the version request
+        const out = Buffer.from([CLA, INS.GET_VERSION, 0x00, 0x00, 0x00]);
+        let res = null;
+
+        // send the data to device and read response
+        try {
+            res = await utils.send(out);
+        } catch (e) {
             throw e;
         }
+
+        return res;
     }
 }
-
-export default exchange;
