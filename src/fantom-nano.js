@@ -6,10 +6,13 @@
  * @version 0.1.7
  * @licese MIT
  */
-import utils from "./utils";
+import u2f from "./u2f";
 
 // CLA specified service class used by Fantom Ledger application
 const CLA = 0xe0;
+
+// U2F_TIMEOUT is the number of seconds we wait for U2F to kick in
+const U2F_TIMEOUT = 30;
 
 // INS specifies instructions supported by the Fanto Ledger app
 const INS = {
@@ -81,21 +84,47 @@ export const ErrorMessages = {
     [ErrorCodes.ERR_DEVICE_LOCKED]: "Can not proceed with the instruction, please unlock the device.",
 };
 
-// FantomNano manages the API code to the communication primitives
+// FantomNano implements high level Fantom Nano Ledger HW wallet communication
 export default class FantomNano {
+    // origin represents URI origin of the calling page.
+    // it's used by U2F browser module to secure connection.
+    origin;
 
-    async getVersion() {
-        // construct outgoing buffer fot the version request
-        const out = Buffer.from([CLA, INS.GET_VERSION, 0x00, 0x00, 0x00]);
-        let res = null;
+    // timeout represents time to finish U2F request in seconds
+    // before it's forced to terminates without response.
+    timeout = U2F_TIMEOUT;
 
-        // send the data to device and read response
-        try {
-            res = await utils.send(out);
-        } catch (e) {
-            throw e;
+    /**
+     * Construct new FantomNano API bridge
+     *
+     * @param {string} origin
+     */
+    constructor(origin) {
+        this.origin = origin;
+    }
+
+    /**
+     * Change default timeout used by the bridge for U2F calls.
+     *
+     * @param {number} seconds
+     */
+    setTimeout(seconds) {
+        if (!Number.isInteger(seconds) || (0 >= seconds)) {
+            throw new Error("Invalid U2F timeout value specified.");
         }
 
-        return res;
+        // set the timeout
+        this.timeout = seconds;
     }
-}
+
+    /**
+     * getVersion obtains Fantom Nano Ledger application version
+     *
+     * @returns {Promise<Version>}
+     */
+    async getVersion() {
+        // construct outgoing buffer fot the version request
+        const out = Uint8Array.of(CLA, INS.GET_VERSION, 0x00, 0x00, 0x00);
+        return u2f.send(out, this.origin).then();
+    }
+} 
