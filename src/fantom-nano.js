@@ -6,13 +6,10 @@
  * @version 0.1.7
  * @licese MIT
  */
-import u2f from "./u2f";
+import {Assert, stripReturnCodeFromResponse} from "./utils";
 
 // CLA specified service class used by Fantom Ledger application
 const CLA = 0xe0;
-
-// U2F_TIMEOUT is the number of seconds we wait for U2F to kick in
-const U2F_TIMEOUT = 30;
 
 // INS specifies instructions supported by the Fanto Ledger app
 const INS = {
@@ -84,37 +81,76 @@ export const ErrorMessages = {
     [ErrorCodes.ERR_DEVICE_LOCKED]: "Can not proceed with the instruction, please unlock the device.",
 };
 
+/**
+ * Get error message for the given status code.
+ * If the status code is not known to the API bridge, it returns a default
+ * error message with the code itself.
+ *
+ * @param {number} status
+ * @returns {string}
+ */
+export const getErrorMessage = (status) => {
+    const statusCodeHex = `0x${status.toString(16)}`;
+    const defaultMsg = `Unknown error ${statusCodeHex}. Please consult the manual.`;
+    return ErrorMessages[statusCode] || defaultMsg;
+};
+
+
+/**
+ * convertError implements transport layer error message conversion
+ * we don't want to keep original and un-informative error codes so we use our
+ * application aware errors instead; the conversion is done by the response code
+ * of the APDU status we received
+ *
+ * @param {function} fn
+ * @returns {function(...[*]=)}
+ */
+const wrapConvertError = fn => async (...args) => {
+    try {
+        return await fn(...args);
+    } catch (e) {
+        if (e && e.statusCode) {
+            e.message = `Ledger device: ${getErrorDescription(e.statusCode)}`;
+        }
+        throw e;
+    }
+};
+
 // FantomNano implements high level Fantom Nano Ledger HW wallet communication
 export default class FantomNano {
-    // origin represents URI origin of the calling page.
-    // it's used by U2F browser module to secure connection.
-    origin;
+    // transport represents Ledger hw-transport layer
+    // used to exchange APDU stream with the Ledger device
+    transport;
 
-    // timeout represents time to finish U2F request in seconds
-    // before it's forced to terminates without response.
-    timeout = U2F_TIMEOUT;
+    // send represents a wrapped transport send function
+    send;
+
+    // methods is an array of methods supported by the API bridge
+    methods;
 
     /**
      * Construct new FantomNano API bridge
      *
-     * @param {string} origin
+     * @param {Transport} transport
+     * @param {string} ledgerAppKey APDU proxy key of the Ledger application
      */
-    constructor(origin) {
-        this.origin = origin;
-    }
+    constructor(transport, ledgerAppKey = "FTM") {
+        // keep the transport
+        this.transport = transport;
 
-    /**
-     * Change default timeout used by the bridge for U2F calls.
-     *
-     * @param {number} seconds
-     */
-    setTimeout(seconds) {
-        if (!Number.isInteger(seconds) || (0 >= seconds)) {
-            throw new Error("Invalid U2F timeout value specified.");
-        }
+        // set the list of supported methods
+        this.methods = [
+            "getVersion"
+        ];
 
-        // set the timeout
-        this.timeout = seconds;
+        // wrap local methods within the transport layer
+        // this will allow the transport layer to handle API lock and inform us
+        // if another function is being resolved so we don't get into a race conditions
+        this.transport.decorateAppAPIMethods(this, this.methods, ledgerAppKey);
+
+        // reference send function locally and wrap it in a status code
+        // conversion wrapper so exceptions have app aware error messages
+        this.send = wrapConvertError(this.transport.send);
     }
 
     /**
@@ -123,8 +159,27 @@ export default class FantomNano {
      * @returns {Promise<Version>}
      */
     async getVersion() {
-        // construct outgoing buffer fot the version request
-        const out = Uint8Array.of(CLA, INS.GET_VERSION, 0x00, 0x00, 0x00);
-        return u2f.send(out, this.origin).then();
+        const p1 = 0x00;
+        const p2 = 0x00;
+        const data = new ArrayBuffer(0);
+
+        // execute the call
+        return this.send(CLA, INS.GET_VERSION, p1, p2, data).then(response => {
+            // extract version data
+            const data = stripReturnCodeFromResponse(response);
+
+            // make sure the response is of expected length
+            // we expect {MAJOR}.{MINOR}.{PATCH}.{FLAG}
+            Assert.check(4 === data.length);
+
+            // expand the values
+            const [major, minor, patch, flag] = data;
+            const flags = {
+                isDevelopment: (flag & 0x01)
+            };
+
+            // return the data structure
+            return {major, minor, patch, flags};
+        });
     }
 } 
