@@ -6,7 +6,7 @@
     "lib"
   ],
   "main": "fantom-nano.js",
-  "repository":  "github:Fantom-foundation/Fantom_LedgerJS",
+  "repository": "github:Fantom-foundation/Fantom_LedgerJS",
   "homepage": "https://github.com/Fantom-foundation/Fantom_LedgerJS",
   "keywords": [
     "Ledger",
@@ -19,12 +19,44 @@
   "author": "Jiri Malek <jirka.malek@gmail.com>",
   "license": "MIT",
   "dependencies": {
+    "@ledgerhq/hw-transport": "^5.13.1",
+    "babel-runtime": "^6.26.0",
+    "core-js": "^3.6.5",
+    "node-int64": "^0.4.0",
     "u2f-api": "^1.1.1"
   },
   "devDependencies": {
+    "@babel/cli": "^7.8.4",
+    "@babel/core": "^7.9.0",
+    "@babel/plugin-proposal-class-properties": "^7.8.3",
+    "@babel/plugin-transform-runtime": "^7.9.0",
+    "@babel/preset-env": "^7.9.5",
+    "@ledgerhq/hw-transport-node-hid": "^5.13.1"
   },
   "scripts": {
-    "clean": "",
-    "build": "",
+    "clean": "bash ./tools/clean.sh",
+    "build": "bash ./tools/build.sh",
+    "build-example": "babel --source-maps -d example/lib example/src",
+    "run-example": "npm run clean && npm run build && npm run build-example && node example/lib/example.js"
+  },
+  "babel": {
+    "presets": [
+      [
+        "@babel/preset-env",
+        {
+          "targets": {
+            "browsers": [
+              "last 2 versions"
+            ],
+            "node": "10"
+          },
+          "useBuiltIns": "usage",
+          "corejs": 3
+        }
+      ]
+    ],
+    "plugins": [
+      "@babel/plugin-proposal-class-properties"
+    ]
   }
 }
