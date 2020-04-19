@@ -98,6 +98,7 @@ export const getErrorMessage = (status) => {
 
 /**
  * convertError implements transport layer error message conversion
+ * DWE
  * we don't want to keep original and un-informative error codes so we use our
  * application aware errors instead; the conversion is done by the response code
  * of the APDU status we received
@@ -161,7 +162,7 @@ export default class FantomNano {
     async getVersion() {
         const p1 = 0x00;
         const p2 = 0x00;
-        const data = new ArrayBuffer(0);
+        const data = new Uint8Array(0);
 
         // execute the call
         return this.send(CLA, INS.GET_VERSION, p1, p2, data).then(response => {
