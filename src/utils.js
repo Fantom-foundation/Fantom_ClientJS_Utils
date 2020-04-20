@@ -1,10 +1,16 @@
+// BIP32_HARDENED specifies BIP32 path element which is to be hardened.
+export const BIP32_HARDENED = 0x80000000;
+
+// MAX_FTM_TRANSFER_STR represents maximum amount of FTM tokens (in WEI units) transferable by a transaction.
+const MAX_FTM_TRANSFER_STR = ["2", "284", "136", "835", "000000000000000000"].join("");
+
 // Assert implements set of assertions used to validate data
 // before being processed
 export const Assert = {
     // Generic check
     check: (cond) => {
         if (!cond) {
-            throw new Error("Invalid data received!");
+            throw new Error("Data validation failed!");
         }
     },
 
@@ -47,6 +53,21 @@ export const Assert = {
         Assert.isString(data);
         Assert.check(0 === data.length % 2);
         Assert.check(/^[0-9a-fA-F]*$/.test(data));
+    },
+
+    // isValidBip32Path validates give array for the BIP32 path validity
+    isValidBip32Path: (path) => {
+        Assert.isArray(path);
+        for (const x of path) {
+            Assert.isUint32(x);
+        }
+
+        // check for prefixes
+        Assert.check(path[0] === BIP32_HARDENED | 44);
+        Assert.check(path[1] === BIP32_HARDENED | 60);
+
+        // account key is also expected to be hardened
+        Assert.check(path[2] >= BIP32_HARDENED);
     }
 };
 
@@ -89,3 +110,42 @@ export function stripReturnCodeFromResponse(response) {
     // return the payload without the return code
     return response.slice(0, rtIndex);
 }
+
+/**
+ * bip32PathToBuffer converts BIP32 path to a buffer for sending to Ledeger device.
+ *
+ * @param {[]} path
+ * @returns {Buffer}
+ */
+export function bip32PathToBuffer(path) {
+    // validate the path first to be sure it's valid and expected format
+    // we probably already did this already, but the export can be called externally
+    Assert.isValidBip32Path(path);
+
+    // prep target buffer
+    // the output path buffer has single byte length
+    // followed by 32 bit (4 bytes) Uint number for each path key
+    const data = Buffer.alloc(1 + (4 * path.length));
+
+    // write number of elements in thew path
+    data.writeUInt8(path.length, 0);
+
+    // copy path items as big endian int32 numbers
+    for (let i = 0; i < path.length; i++) {
+        data.writeUInt32BE(path[i], 1 + i * 4);
+    }
+
+    return data;
+}
+
+// what we export here
+export default {
+    // marks hardened BIP32 path member
+    BIP32_HARDENED,
+
+    // function converts buffer to hex string
+    buffer2Hex,
+
+    // function converts valid BIP32 path to APDU data payload buffer
+    bip32PathToBuffer,
+};

@@ -1,5 +1,6 @@
 import TransportNodeHid from "@ledgerhq/hw-transport-node-hid";
 import FantomNano from "../../lib/fantom-nano";
+import {buffer2Hex} from "../../lib/utils";
 
 /**
  * showVersion loads application version from Ledger device and dumps
@@ -22,11 +23,47 @@ async function showVersion(bridge) {
     }
 }
 
+/**
+ * getPrimaryWallet gets the first wallet address of the first account
+ * The address is derived on the ledger device and sent back to us through
+ * the transport layer.
+ *
+ * @param {FantomNano} bridge
+ * @returns {Promise<void>}
+ */
+async function getPrimaryWallet(bridge) {
+    // inform
+    console.log("\nRequesting primary wallet for the main account.");
+
+    // get the version info
+    const addr = await bridge.getAddress(0, 0);
+    console.log(`    > Address: ${addr}`);
+}
+
+/**
+ * getPrimaryWalletPubKey gets the extended public key of the first wallet address
+ * of the first account
+ *
+ * @param {FantomNano} bridge
+ * @returns {Promise<void>}
+ */
+async function getPrimaryWalletPubKey(bridge) {
+    // inform
+    console.log("\nRequesting public key of the primary wallet of the main account.");
+
+    // get the version info
+    const key = await bridge.getPublicKey(0, 0);
+    console.log(`    > Pub Key: ${buffer2Hex(key.publicKey)}`);
+    console.log(`    > Chain Key: ${buffer2Hex(key.chainKey)}`);
+}
+
 // run executes the test
 async function run() {
     // inform
+    console.log("-----------------------------------------------");
     console.log("Fantom Nano Ledger application example started.");
-    console.log("    > We try to connect to your Ledger device.");
+    console.log("-----------------------------------------------");
+    console.log("\n    > We try to connect to your Ledger device.");
 
     // init transport adapter to Ledger device
     const tr = await TransportNodeHid.create();
@@ -37,9 +74,16 @@ async function run() {
 
     // start executing the code
     await showVersion(bridge);
+
+    // get the first available address
+    await getPrimaryWallet(bridge);
+
+    // get the first available address
+    await getPrimaryWalletPubKey(bridge);
 }
 
 // do it
 run().then(() => {
-    console.log("Done.");
+    // we are done here
+    console.log("\n-----------------------------------------------\nDone.");
 });

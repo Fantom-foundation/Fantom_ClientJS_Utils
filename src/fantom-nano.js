@@ -6,7 +6,7 @@
  * @version 0.1.7
  * @licese MIT
  */
-import {Assert, stripReturnCodeFromResponse} from "./utils";
+import {Assert, stripReturnCodeFromResponse, bip32PathToBuffer, BIP32_HARDENED, buffer2Hex} from "./utils";
 
 // CLA specified service class used by Fantom Ledger application
 const CLA = 0xe0;
@@ -92,7 +92,7 @@ export const ErrorMessages = {
 export const getErrorMessage = (status) => {
     const statusCodeHex = `0x${status.toString(16)}`;
     const defaultMsg = `Unknown error ${statusCodeHex}. Please consult the manual.`;
-    return ErrorMessages[statusCode] || defaultMsg;
+    return ErrorMessages[status] || defaultMsg;
 };
 
 
@@ -111,7 +111,7 @@ const wrapConvertError = fn => async (...args) => {
         return await fn(...args);
     } catch (e) {
         if (e && e.statusCode) {
-            e.message = `Ledger device: ${getErrorDescription(e.statusCode)}`;
+            e.message = `Ledger device: ${getErrorMessage(e.statusCode)}`;
         }
         throw e;
     }
@@ -141,12 +141,20 @@ export default class FantomNano {
 
         // set the list of supported methods
         this.methods = [
-            "getVersion"
+            "getVersion",
+            "getAddress",
+            "getPublicKey",
+            "signTransaction"
         ];
 
         // wrap local methods within the transport layer
         // this will allow the transport layer to handle API lock and inform us
-        // if another function is being resolved so we don't get into a race conditions
+        // if another function is being resolved so we don't get into a race conditions.
+        // Some function require user interaction with the device and another instruction
+        // can not be executed until the active one finished. If we send another APDU
+        // in the mean time, the Fantom app will restart the Ledger device to protect
+        // it against malicious attempts to abuse possible weaknesses of the internal
+        // state switch.
         this.transport.decorateAppAPIMethods(this, this.methods, ledgerAppKey);
 
         // reference send function locally and wrap it in a status code
@@ -183,4 +191,146 @@ export default class FantomNano {
             return {major, minor, patch, flags};
         });
     }
-} 
+
+    /**
+     * getBip32Path creates a valid BIP32/44 path for given account and address.
+     *
+     * @param {number} accountId
+     * @param {number} addressId
+     * @returns {[]}
+     */
+    getBip32Path(accountId, addressId) {
+        // make sure the account and address make sense
+        Assert.isUint8(accountId);
+        Assert.isUint32(addressId);
+
+        // make the path and validate it
+        const path = [44 + BIP32_HARDENED, 60 + BIP32_HARDENED, accountId + BIP32_HARDENED, 0, addressId];
+        Assert.isValidBip32Path(path);
+
+        return path;
+    }
+
+    /**
+     * getAddress extracts Fantom wallet address for the given account and address id.
+     *
+     * @param {number} accountId Zero based account identifier.
+     * @param {number} addressId Zero based address identifier.
+     * @returns {Promise<string>}
+     */
+    async getAddress(accountId = 0, addressId = 0) {
+        // derive address for the BIP44 path constructed for the given account and address
+        return this.deriveAddress(this.getBip32Path(accountId, addressId), true);
+    }
+
+    /**
+     * getPublicKey derives Fantom wallet public key for the given account and address id.
+     *
+     * @param {number} accountId Zero based account identifier.
+     * @param {number} addressId Zero based address identifier.
+     * @returns {Promise<{}>}
+     */
+    async getPublicKey(accountId = 0, addressId = 0) {
+        // derive address for the BIP44 path constructed for the given account and address
+        return this.derivePublicKey(this.getBip32Path(accountId, addressId));
+    }
+
+    /**
+     * signTransaction signs specified transaction on the Ledger device and return signed transaction data.
+     *
+     * @param {number} accountId Zero based sending account identifier.
+     * @param {number} addressId Zero based sending address identifier.
+     * @param {{}} tx Transaction details. Please check the documentation for the structure.
+     * @returns {Promise<Uint8Array>}
+     */
+    async signTransaction(accountId, addressId, tx) {
+        // get the BIP32 path of the sender
+        const path = this.getBip32Path(accountId, addressId);
+
+    }
+
+    /**
+     * deriveAddress derives address for the given BIP32 path.
+     *
+     * Please note that the Fantom Ledger application is coded to provide
+     * only subset of BIP32 paths with prefix "44'/60'". We don't derive
+     * addresses outside of expected Fantom address space.
+     *
+     * @param {[]} bip32Path
+     * @param {boolean} confirmAddress
+     * @returns {Promise<string>}
+     */
+    async deriveAddress(bip32Path, confirmAddress) {
+        // check the path for validity
+        Assert.isValidBip32Path(bip32Path);
+
+        // what params will be sent
+        const p1 = (confirmAddress ? 0x02 : 0x01);
+        const p2 = 0x00;
+        const data = bip32PathToBuffer(bip32Path);
+
+        // execute the call
+        return this.send(CLA, INS.GET_ADDRESS, p1, p2, data).then(response => {
+            // extract version data
+            const data = stripReturnCodeFromResponse(response);
+
+            // make sure the response is of expected length
+            // we expect 1 byte for address length + (probably) 20 bytes address buffer
+            Assert.check(0 < data.length);
+
+            // get the address length
+            const len = new Uint8Array(data.slice(0, 1))[0];
+
+            // do we have the data we expect
+            Assert.check(0 < len);
+            Assert.check(len + 1 === data.length);
+
+            // return the address data as an expected hex string
+            return buffer2Hex(data.slice(1, 1 + len));
+        });
+    }
+
+    /**
+     * derivePublicKey derives public key for the given BIP32 path.
+     *
+     * Please note that the Fantom Ledger application is coded to provide
+     * only subset of BIP32 paths with prefix "44'/60'". We don't derive
+     * public keys outside of expected Fantom address space.
+     *
+     * @param bip32Path
+     * @returns {Promise<{}>}
+     */
+    async derivePublicKey(bip32Path) {
+        // check the path for validity
+        Assert.isValidBip32Path(bip32Path);
+
+        // what params will be sent
+        const p1 = 0x00;
+        const p2 = 0x00;
+        const data = bip32PathToBuffer(bip32Path);
+
+        // execute the call
+        return this.send(CLA, INS.GET_PUBLIC_KEY, p1, p2, data).then(response => {
+            // extract version data
+            const data = stripReturnCodeFromResponse(response);
+
+            // make sure the response is of expected length
+            // we expect 1 byte for public key length + that amount of bytes for the
+            // public key + that same amount of bytes for the chain key
+            Assert.check(0 < data.length);
+
+            // get the public key length
+            const len = new Uint8Array(data.slice(0, 1))[0];
+
+            // do we have the data we expect?
+            // length byte + 2 x length of key bytes
+            Assert.check(1 + len + len === data.length);
+
+            // return the data
+            return {
+                publicKey: data.slice(1, 1 + len),
+                chainKey: data.slice(1 + len, 1 + len + len)
+            };
+        });
+    }
+}
