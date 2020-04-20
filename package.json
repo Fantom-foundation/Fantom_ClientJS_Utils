@@ -22,6 +22,7 @@
     "@ledgerhq/hw-transport": "^5.13.1",
     "babel-runtime": "^6.26.0",
     "core-js": "^3.6.5",
+    "ethereumjs-tx": "^2.1.2",
     "node-int64": "^0.4.0",
     "u2f-api": "^1.1.1"
   },

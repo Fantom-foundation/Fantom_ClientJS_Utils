@@ -57,6 +57,32 @@ async function getPrimaryWalletPubKey(bridge) {
     console.log(`    > Chain Key: ${buffer2Hex(key.chainKey)}`);
 }
 
+/**
+ * getSignedTransaction sends a transaction to the device for signature building
+ * and returns the signed transaction data
+ *
+ * @param {FantomNano} bridge
+ * @returns {Promise<void>}
+ */
+async function getSignedTransaction(bridge) {
+    // inform
+    console.log("\nRequesting transaction signature.");
+
+    // prep the transaction
+    const tx = {
+        nonce: 0,
+        gasPrice: 1000000000,
+        gasLimit: 42000,
+        to: "0xde21c43dad13948dda15df6d729624fd1d1c46b6", /* Sunstone */
+        value: "0xde0b6b3a7640000", /* 1 FTM in WEI (1e+18) in HEX */
+        data: "0x54657374" /* Test */
+    };
+
+    // get the version info
+    const result = await bridge.signTransaction(0, 0, tx);
+    console.log(`    > Signed: ${buffer2Hex(result.rawTransaction)}`);
+}
+
 // run executes the test
 async function run() {
     // inform
@@ -71,15 +97,21 @@ async function run() {
 
     // init the API bridge
     const bridge = new FantomNano(tr);
+    try {
+        // start executing the code
+        await showVersion(bridge);
 
-    // start executing the code
-    await showVersion(bridge);
+        // get the first available address
+        await getPrimaryWallet(bridge);
 
-    // get the first available address
-    await getPrimaryWallet(bridge);
+        // get the first available address
+        await getPrimaryWalletPubKey(bridge);
 
-    // get the first available address
-    await getPrimaryWalletPubKey(bridge);
+        // try to get signed transaction
+        await getSignedTransaction(bridge);
+    } catch (e) {
+        console.log("Interrupted!", e.toString());
+    }
 }
 
 // do it

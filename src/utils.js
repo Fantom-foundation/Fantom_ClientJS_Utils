@@ -4,6 +4,12 @@ export const BIP32_HARDENED = 0x80000000;
 // MAX_FTM_TRANSFER_STR represents maximum amount of FTM tokens (in WEI units) transferable by a transaction.
 const MAX_FTM_TRANSFER_STR = ["2", "284", "136", "835", "000000000000000000"].join("");
 
+// REQUIRED_TX_ATTRIBUTES represents a list of object attributes we require
+// on an outgoing transaction
+const REQUIRED_TX_ATTRIBUTES = [
+    "nonce", "gasPrice", "gasLimit", "value"
+];
+
 // Assert implements set of assertions used to validate data
 // before being processed
 export const Assert = {
@@ -15,8 +21,13 @@ export const Assert = {
     },
 
     // isString validates if the given data set is a string
+    isObject: (data) => {
+        Assert.check("object" === typeof data);
+    },
+
+    // isString validates if the given data set is a string
     isString: (data) => {
-        Assert.check(typeof data === "string");
+        Assert.check("string" === typeof data);
     },
 
     // isInteger validates that the give data is an integer number
@@ -55,6 +66,12 @@ export const Assert = {
         Assert.check(/^[0-9a-fA-F]*$/.test(data));
     },
 
+    // hasAttribute validates that given object does have a specified attribute
+    hasAttribute: (obj, attr) => {
+        Assert.isObject(obj);
+        Assert.check(obj.hasOwnProperty(attr));
+    },
+
     // isValidBip32Path validates give array for the BIP32 path validity
     isValidBip32Path: (path) => {
         Assert.isArray(path);
@@ -68,6 +85,14 @@ export const Assert = {
 
         // account key is also expected to be hardened
         Assert.check(path[2] >= BIP32_HARDENED);
+    },
+
+    // isValidTransaction validates transaction for needed data elements
+    isValidTransaction: (tx) => {
+        // validate fields
+        for (let i = 0; i < REQUIRED_TX_ATTRIBUTES.length; i++) {
+            Assert.hasAttribute(tx, REQUIRED_TX_ATTRIBUTES [i]);
+        }
     }
 };
 
