@@ -181,6 +181,9 @@ export default {
     // function converts buffer to hex string
     buffer2Hex,
 
+    // function converts hex string to buffer
+    hex2Buffer,
+
     // function converts valid BIP32 path to APDU data payload buffer
     bip32PathToBuffer,
 };
