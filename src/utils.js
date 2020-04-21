@@ -109,6 +109,16 @@ export function buffer2Hex(buffer) {
         .join("");
 }
 
+/**
+ * hex2Buffer creates a buffer from HEX string
+ *
+ * @param {string} data
+ * @returns {Buffer}
+ */
+export function hex2Buffer(data) {
+    Assert.isString(data);
+    return Buffer.from(data, "hex");
+}
 
 /**
  * stripReturnCodeFromResponse slices return code from an APDU response

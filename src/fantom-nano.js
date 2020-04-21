@@ -9,6 +9,9 @@
 import {Assert, stripReturnCodeFromResponse, bip32PathToBuffer, BIP32_HARDENED, buffer2Hex} from "./utils";
 import {Transaction} from "ethereumjs-tx";
 
+// FANTOM_CHAIN_ID represents the Fantom Opera main chain id.
+export const FANTOM_CHAIN_ID = 0xfa;
+
 // CLA specified service class used by Fantom Ledger application
 const CLA = 0xe0;
 
@@ -18,6 +21,13 @@ const INS = {
     GET_PUBLIC_KEY: 0x10,
     GET_ADDRESS: 0x11,
     SIGN_TRANSACTION: 0x20
+};
+
+// SIGN_STATE represents the state of transaction data processing
+// on the Ledger device
+const SIGN_STATE = {
+    COLLECT: 0x02,
+    FINALIZE: 0x04
 };
 
 // MAX_APDU_CHUNK_LENGTH represents the max amount of bytes we send
@@ -176,7 +186,7 @@ export default class FantomNano {
     async getVersion() {
         const p1 = 0x00;
         const p2 = 0x00;
-        const data = new Uint8Array(0);
+        const data = Buffer.alloc(0);
 
         // execute the call
         return this.send(CLA, INS.GET_VERSION, p1, p2, data).then(response => {
@@ -247,11 +257,14 @@ export default class FantomNano {
      * @param {number} accountId Zero based sending account identifier.
      * @param {number} addressId Zero based sending address identifier.
      * @param {{}} tx Transaction details. Please check the documentation for the structure.
-     * @returns {Promise<Buffer>}
+     * @returns {Promise<{}>}
      */
     async signTransaction(accountId, addressId, tx) {
         // validate transaction
         Assert.isValidTransaction(tx);
+
+        // add the chain id to the tx data
+        const txData = {...tx};
 
         // step 1: Init signing process on the device
         const step1Init = async (bip32Path) => {
@@ -281,20 +294,18 @@ export default class FantomNano {
             const p1 = 0x01;
             const p2 = 0x00;
 
-            // log the TX raw data
-            console.log("Sending chunk:", buffer2Hex(chunk));
-
             // send the RLP encoded transaction chunk to the device
-            return this.send(CLA, INS.SIGN_TRANSACTION, p1, p2, chunk).then(response => {
+            return await this.send(CLA, INS.SIGN_TRANSACTION, p1, p2, chunk).then(response => {
                 // extract version data
                 const data = stripReturnCodeFromResponse(response);
 
-                // log the TX raw data
-                console.log("Chunk done");
+                // the data should contain current processing stage
+                // it's either SIGN_STAGE_COLLECT (0x02), or SIGN_STAGE_FINALIZE (0x04)
+                Assert.check(data.length === 1);
+                Assert.check(data[0] === SIGN_STATE.COLLECT || data[0] === SIGN_STATE.FINALIZE);
 
-                // the data should be actually empty
-                Assert.check(data.length === 0);
-                return true;
+                // return the signature state
+                return data[0];
             });
         };
 
@@ -303,15 +314,12 @@ export default class FantomNano {
             // what params will be sent
             const p1 = 0x80;
             const p2 = 0x00;
-            const data = new Buffer(0);
+            const data = Buffer.alloc(0);
 
             // send the RLP encoded transaction chunk to the device
-            return this.send(CLA, INS.SIGN_TRANSACTION, p1, p2, data).then(response => {
+            return await this.send(CLA, INS.SIGN_TRANSACTION, p1, p2, data).then(response => {
                 // extract version data
                 const data = stripReturnCodeFromResponse(response);
-
-                // log the data
-                console.log("Length:", data.length, "\nData:", buffer2Hex(data));
 
                 // we expect following structure
                 // 1 byte for <v> value
@@ -328,58 +336,48 @@ export default class FantomNano {
             });
         };
 
+        // prepare the transaction for sending
+        const trx = new Transaction(txData, {});
+        const buffer = trx.serialize();
 
-        // get the BIP32 path of the sender
-        return step1Init(this.getBip32Path(accountId, addressId)).then(() => {
-            // signing process confirmed
-            return true;
-        }).then(async () => {
-            // now we send chunks of the TX data to ledger
-            // please note we split the APDU to 200 bytes chunks
-            // to be on the safe side with U2F and similarly limited
-            // protocols
-            const trx = new Transaction(tx, {});
-            const buffer = trx.serialize();
+        // make chunks for sending to ledger device
+        // we potentially have to split the data for U2F transport
+        const chunks = [];
+        const parts = Math.ceil(buffer.length / MAX_APDU_CHUNK_LENGTH);
+        for (let i = 0; i < parts; i++) {
+            chunks [i] = buffer.slice(i * MAX_APDU_CHUNK_LENGTH, (i + 1) * MAX_APDU_CHUNK_LENGTH);
+        }
 
-            // log the TX raw data
-            console.log("Raw TX:", buffer2Hex(buffer));
+        // initialize the signing process first
+        await step1Init(this.getBip32Path(accountId, addressId));
 
-            // make chunks for sending to ledger device
-            const chunks = [];
-            const parts = Math.ceil(buffer.length / MAX_APDU_CHUNK_LENGTH);
-            for (let i = 0; i < parts; i++) {
-                chunks [i] = buffer.slice(i * MAX_APDU_CHUNK_LENGTH, (i + 1) * MAX_APDU_CHUNK_LENGTH);
-            }
+        // transfer chunks of data one by one
+        await chunks.reduce(async (previous, next) => {
+            // wait for the previous to finish
+            const res = await previous;
 
-            // log the TX raw data
-            console.log("Chunks to transfer:", chunks.length);
-
-            // transfer chunks of data one by one
-            /*
-            chunks.reduce(async (previous, next) => {
-                await previous;
+            // we may not need to transfer the last chunk if the Ledger already signalled that it doesn't
+            // need it (probably because the last chunk has only empty v, r, and s values
+            if (SIGN_STATE.COLLECT === res) {
                 return step2TxTransfer(next);
-            }, Promise.resolve());
-            */
-            await step2TxTransfer(chunks[0]);
-
-            // we are done here
-            return true;
-        }).then(async () => {
-            // confirm signature processing on the device and request
-            // the signature data to be returned
-            const sig = await step3TxFinalize();
-
-            // add the signature to the transaction
-            const trx = new Transaction({v: sig.v, r: sig.r, s: sig.s, ...tx}, {});
-            return {
-                v: sig.v,
-                r: sig.r,
-                s: sig.s,
-                tx: trx,
-                rawTransaction: trx.serialize()
+            } else {
+                return Promise.resolve(SIGN_STATE.FINALIZE);
             }
-        });
+        }, Promise.resolve(SIGN_STATE.COLLECT));
+
+        // confirm signature processing on the device and request
+        // the signature data to be returned
+        const sig = await step3TxFinalize();
+
+        // add the signature to the transaction
+        const txFinal = new Transaction({v: sig.v, r: sig.r, s: sig.s, ...tx}, {});
+        return {
+            v: sig.v,
+            r: sig.r,
+            s: sig.s,
+            tx: txFinal,
+            raw: txFinal.serialize()
+        }
     }
 
     /**

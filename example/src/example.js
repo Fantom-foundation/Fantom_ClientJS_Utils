@@ -1,6 +1,6 @@
 import TransportNodeHid from "@ledgerhq/hw-transport-node-hid";
 import FantomNano from "../../lib/fantom-nano";
-import {buffer2Hex} from "../../lib/utils";
+import {buffer2Hex, hex2Buffer} from "../../lib/utils";
 
 /**
  * showVersion loads application version from Ledger device and dumps
@@ -72,15 +72,18 @@ async function getSignedTransaction(bridge) {
     const tx = {
         nonce: 0,
         gasPrice: 1000000000,
-        gasLimit: 42000,
-        to: "0xde21c43dad13948dda15df6d729624fd1d1c46b6", /* Sunstone */
-        value: "0xde0b6b3a7640000", /* 1 FTM in WEI (1e+18) in HEX */
-        data: "0x54657374" /* Test */
+        gasLimit: 210000,
+        to: hex2Buffer("de21c43dad13948dda15df6d729624fd1d1c46b6"), /* Sunstone */
+        value: 1500000000000000000, /* 1.5 FTM in WEI (1e+18) in HEX */
+        data: hex2Buffer("54657374") /* string Test */
     };
+
+    // show the transaction details
+    console.log("Transaction details:", JSON.stringify(tx));
 
     // get the version info
     const result = await bridge.signTransaction(0, 0, tx);
-    console.log(`    > Signed: ${buffer2Hex(result.rawTransaction)}`);
+    console.log(`    > Signed: ${buffer2Hex(result.raw)}`);
 }
 
 // run executes the test
@@ -102,10 +105,10 @@ async function run() {
         await showVersion(bridge);
 
         // get the first available address
-        await getPrimaryWallet(bridge);
+        // await getPrimaryWallet(bridge);
 
         // get the first available address
-        await getPrimaryWalletPubKey(bridge);
+        // await getPrimaryWalletPubKey(bridge);
 
         // try to get signed transaction
         await getSignedTransaction(bridge);
