@@ -301,15 +301,12 @@ export default class FantomNano {
      *
      * @param {number} accountId Zero based sending account identifier.
      * @param {number} addressId Zero based sending address identifier.
-     * @param {{}} tx Transaction details. Please check the documentation for the structure.
+     * @param {{}|Transaction} tx Transaction details. Please check the documentation for the structure.
      * @returns {Promise<{}>}
      */
     async signTransaction(accountId, addressId, tx) {
         // validate transaction
         Assert.isValidTransaction(tx);
-
-        // add the chain id to the tx data
-        const txData = {...tx};
 
         // step 1: Init signing process on the device
         const step1Init = async (bip32Path) => {
@@ -381,9 +378,16 @@ export default class FantomNano {
             });
         };
 
-        // prepare the transaction for sending
-        const trx = new Transaction(txData, {});
-        const buffer = trx.serialize();
+        // prepare the transaction buffer for sending
+        let buffer;
+        if ("object" === typeof tx && tx.hasOwnProperty("raw") && Array.isArray(tx.raw)) {
+            // we use direct conversion
+            buffer = tx.serialize();
+        } else {
+            // we make the intermediate for LRP encoding
+            const trx = new Transaction(tx, {});
+            buffer = trx.serialize();
+        }
 
         // make chunks for sending to ledger device
         // we potentially have to split the data for U2F transport

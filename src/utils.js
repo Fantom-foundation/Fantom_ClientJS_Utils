@@ -89,6 +89,11 @@ export const Assert = {
 
     // isValidTransaction validates transaction for needed data elements
     isValidTransaction: (tx) => {
+        // it could be the Transaction object itself
+        if ("object" === typeof tx && tx.hasOwnProperty("raw") && Array.isArray(tx.raw)) {
+            return
+        }
+
         // validate fields
         for (let i = 0; i < REQUIRED_TX_ATTRIBUTES.length; i++) {
             Assert.hasAttribute(tx, REQUIRED_TX_ATTRIBUTES [i]);
