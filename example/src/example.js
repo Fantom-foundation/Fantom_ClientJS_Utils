@@ -41,6 +41,25 @@ async function getPrimaryWallet(bridge) {
 }
 
 /**
+ * getWalletList gets the first five wallet addresses of the first account
+ * Each address is derived on the ledger device and sent back to us through
+ * the transport layer.
+ *
+ * @param {FantomNano} bridge
+ * @returns {Promise<void>}
+ */
+async function getWalletList(bridge) {
+    // inform
+    console.log("\nRequesting list of five wallets for the main account.");
+
+    // get the version info
+    const addr = await bridge.listAddresses(0, 0, 5);
+    for (let i = 0; i < addr.length; i++) {
+        console.log(`    > Address: ${addr[i]}`);
+    }
+}
+
+/**
  * getPrimaryWalletPubKey gets the extended public key of the first wallet address
  * of the first account
  *
@@ -105,10 +124,13 @@ async function run() {
         await showVersion(bridge);
 
         // get the first available address
-        // await getPrimaryWallet(bridge);
+        await getPrimaryWallet(bridge);
+
+        // get the list of addresses
+        await getWalletList(bridge);
 
         // get the first available address
-        // await getPrimaryWalletPubKey(bridge);
+        await getPrimaryWalletPubKey(bridge);
 
         // try to get signed transaction
         await getSignedTransaction(bridge);

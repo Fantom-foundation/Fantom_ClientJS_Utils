@@ -234,9 +234,54 @@ export default class FantomNano {
      * @param {number} addressId Zero based address identifier.
      * @returns {Promise<string>}
      */
-    async getAddress(accountId = 0, addressId = 0) {
+    async getAddress(accountId = 0, addressId = 0, confirmAddress = true) {
         // derive address for the BIP44 path constructed for the given account and address
-        return this.deriveAddress(this.getBip32Path(accountId, addressId), true);
+        return this.deriveAddress(this.getBip32Path(accountId, addressId), confirmAddress);
+    }
+
+    /**
+     * listAddresses extracts sequence of logically consequent Fantom wallet addresses
+     * for the given account, initial address id and expected address length.
+     *
+     * Please note that user will be warned if you ask for an address range exceeding
+     * 1000000 address index.
+     *
+     * @param {number} accountId Zero based account identifier.
+     * @param {number} firstAddressId Zero based id of the first address we want to start with.
+     * @param {number} length The number of addresses we need
+     * @returns {Promise<[]>}
+     */
+    async listAddresses(accountId = 0, firstAddressId = 0, length = 5) {
+        const result = [];
+        Assert.isUint32(firstAddressId);
+        Assert.isUint8(length);
+        Assert.check(length > 0);
+
+        // build list of paths
+        const paths = [];
+        for (let i = 0; i < length; i++) {
+            paths.push(this.getBip32Path(accountId, firstAddressId + i));
+        }
+
+        // requests derived addresses for the paths
+        const lastPath = await paths.reduce(async (previous, next) => {
+            // wait for the address to arrive
+            const res = await previous;
+            if (null !== res) {
+                result.push(res);
+            }
+
+            // ask for the next address
+            return this.deriveAddress(next, false);
+        }, Promise.resolve(null));
+
+        // also store the last path
+        if (null !== lastPath) {
+            result.push(lastPath);
+        }
+
+        // return the result
+        return result;
     }
 
     /**
