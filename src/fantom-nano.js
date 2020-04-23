@@ -159,6 +159,7 @@ export default class FantomNano {
         this.methods = [
             "getVersion",
             "getAddress",
+            "listAddresses",
             "getPublicKey",
             "signTransaction"
         ];
