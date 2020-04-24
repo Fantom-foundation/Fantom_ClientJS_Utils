@@ -178,6 +178,27 @@ export function bip32PathToBuffer(path) {
     return data;
 }
 
+// hasHexPrefix checks if the given string does have a usual hex prefix "0x".
+function hasHexPrefix(str) {
+    if ("string" !== typeof str) {
+        throw new Error("String parameter expected.");
+    }
+    return "0x" === str.slice(0, 2);
+}
+
+/**
+ * stripHexPrefix removes "0x" prefix from a hex string if presented
+ *
+ * @param {string} str
+ * @return {string}
+ */
+export function stripHexPrefix(str) {
+    if (hasHexPrefix(str)) {
+        return str.slice(2);
+    }
+    return str;
+}
+
 // what we export here
 export default {
     // marks hardened BIP32 path member
@@ -191,4 +212,7 @@ export default {
 
     // function converts valid BIP32 path to APDU data payload buffer
     bip32PathToBuffer,
+
+    // stripHexPrefix removes "0x" prefix from a hex string if presented
+    stripHexPrefix
 };

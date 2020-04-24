@@ -8,6 +8,9 @@
  */
 import {Assert, stripReturnCodeFromResponse, bip32PathToBuffer, BIP32_HARDENED, buffer2Hex} from "./utils";
 import {Transaction} from "ethereumjs-tx";
+import Common from "ethereumjs-common";
+import {encode} from "rlp";
+import {toBuffer, stripZeros} from "ethereumjs-util";
 
 // FANTOM_CHAIN_ID represents the Fantom Opera main chain id.
 export const FANTOM_CHAIN_ID = 0xfa;
@@ -32,7 +35,7 @@ const SIGN_STATE = {
 
 // MAX_APDU_CHUNK_LENGTH represents the max amount of bytes we send
 // to the device in one chunk
-const MAX_APDU_CHUNK_LENGTH = 200;
+const MAX_APDU_CHUNK_LENGTH = 150;
 
 // ErrorCodes exports list of errors produced by the Fantom Ledger app
 // in case of unexpected event.
@@ -145,6 +148,9 @@ export default class FantomNano {
     // methods is an array of methods supported by the API bridge
     methods;
 
+    // sigOptions holds chain tx signature building options
+    sigOptions;
+
     /**
      * Construct new FantomNano API bridge
      *
@@ -233,6 +239,7 @@ export default class FantomNano {
      *
      * @param {number} accountId Zero based account identifier.
      * @param {number} addressId Zero based address identifier.
+     * @param {boolean} confirmAddress Ask Ledger device to display the address before sending.
      * @returns {Promise<string>}
      */
     async getAddress(accountId = 0, addressId = 0, confirmAddress = true) {
@@ -295,6 +302,55 @@ export default class FantomNano {
     async getPublicKey(accountId = 0, addressId = 0) {
         // derive address for the BIP44 path constructed for the given account and address
         return this.derivePublicKey(this.getBip32Path(accountId, addressId));
+    }
+
+    /**
+     * getTransactionSignatureOptions builds and returns chain signature options
+     * The structure is used on transaction signing process to handle chain id related
+     * processing. See EIP155 for the details on mitigating replay attacks through
+     * adding chain id to the signed transaction hash.
+     *
+     * @return {{}}
+     */
+    getTransactionSignatureOptions() {
+        // create the signature options structure if needed
+        if ("object" !== typeof this.sigOptions) {
+            this.sigOptions = {
+                common: Common.forCustomChain(
+                    'mainnet',
+                    {
+                        name: 'custom-network',
+                        networkId: 1,
+                        chainId: FANTOM_CHAIN_ID
+                    },
+                    'petersburg'
+                )
+            };
+        }
+
+        return this.sigOptions;
+    }
+
+    /**
+     * getRawTransaction constructs raw transaction RLP buffer for sending
+     * to the ledger device for signature derivation
+     *
+     * @param {{}} tx
+     * @return {Buffer}
+     */
+    getRawTransaction(tx) {
+        // prepare the transaction buffer for sending
+        const txRaw = new Transaction(tx, this.getTransactionSignatureOptions());
+
+        // get the main set of data and add chain id
+        // so we are EIP155 compliant
+        const items = txRaw.raw.slice(0, 6).concat([
+            toBuffer(txRaw.getChainId()),
+            stripZeros(toBuffer(0)),
+            stripZeros(toBuffer(0)),
+        ]);
+
+        return encode(items);
     }
 
     /**
@@ -379,23 +435,15 @@ export default class FantomNano {
             });
         };
 
-        // prepare the transaction buffer for sending
-        let buffer;
-        if ("object" === typeof tx && tx.hasOwnProperty("raw") && Array.isArray(tx.raw)) {
-            // we use direct conversion
-            buffer = tx.serialize();
-        } else {
-            // we make the intermediate for LRP encoding
-            const trx = new Transaction(tx, {});
-            buffer = trx.serialize();
-        }
+        // get the raw transaction data which will be transmitted for signing
+        const txBuffer = this.getRawTransaction(tx);
 
         // make chunks for sending to ledger device
         // we potentially have to split the data for U2F transport
         const chunks = [];
-        const parts = Math.ceil(buffer.length / MAX_APDU_CHUNK_LENGTH);
+        const parts = Math.ceil(txBuffer.length / MAX_APDU_CHUNK_LENGTH);
         for (let i = 0; i < parts; i++) {
-            chunks [i] = buffer.slice(i * MAX_APDU_CHUNK_LENGTH, (i + 1) * MAX_APDU_CHUNK_LENGTH);
+            chunks [i] = txBuffer.slice(i * MAX_APDU_CHUNK_LENGTH, (i + 1) * MAX_APDU_CHUNK_LENGTH);
         }
 
         // initialize the signing process first
@@ -420,9 +468,25 @@ export default class FantomNano {
         const sig = await step3TxFinalize();
 
         // add the signature to the transaction
-        const txFinal = new Transaction({v: sig.v, r: sig.r, s: sig.s, ...tx}, {});
+        // please note we recover the correct <v> value from what we've got
+        // since the Ledger calculates only the base <v> value and we need
+        // to add chain id to it to finalize the signature in EIP155 sense.
+        const txFinal = new Transaction(
+            {
+                ...tx,
+                v: sig.v + ((FANTOM_CHAIN_ID * 2) + 8),
+                r: sig.r,
+                s: sig.s
+            },
+            this.getTransactionSignatureOptions()
+        );
+
+        console.log("Signature Valid? ", txFinal.verifySignature() ? "true" : 'false');
+        console.log("Sender: ", buffer2Hex(txFinal.getSenderAddress()));
+        console.log("PubKey: ", buffer2Hex(txFinal.getSenderPublicKey()));
+
         return {
-            v: sig.v,
+            v: sig.v + ((FANTOM_CHAIN_ID * 2) + 8),
             r: sig.r,
             s: sig.s,
             tx: txFinal,

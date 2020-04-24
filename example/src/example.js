@@ -1,6 +1,6 @@
 import TransportNodeHid from "@ledgerhq/hw-transport-node-hid";
 import FantomNano from "../../lib/fantom-nano";
-import {buffer2Hex, hex2Buffer} from "../../lib/utils";
+import {buffer2Hex} from "../../lib/utils";
 
 /**
  * showVersion loads application version from Ledger device and dumps
@@ -89,20 +89,18 @@ async function getSignedTransaction(bridge) {
 
     // prep the transaction
     const tx = {
-        nonce: 0,
-        gasPrice: 1000000000,
-        gasLimit: 210000,
-        to: hex2Buffer("de21c43dad13948dda15df6d729624fd1d1c46b6"), /* Sunstone */
-        value: 1500000000000000000, /* 1.5 FTM in WEI (1e+18) in HEX */
-        data: hex2Buffer("54657374") /* string Test */
+        nonce: "0x2",
+        gasPrice: "0x3b9aca00",
+        gasLimit: "0xabe0",
+        to: "0x76AE07E6D236c1aE3F5C3112F387ad82c69A2471", /* Sunstone */
+        value: "0xde0b6b3a7640000", /* 1 FTM in WEI (1e+18) in HEX */
+        data: "0x506f6b7573", /* string Test */
+        chainId: "0xfa"
     };
-
-    // show the transaction details
-    console.log("Transaction details:", JSON.stringify(tx));
 
     // get the version info
     const result = await bridge.signTransaction(0, 0, tx);
-    console.log(`    > Signed: ${buffer2Hex(result.raw)}`);
+    console.log(`    > Signed Raw: ${buffer2Hex(result.raw)}`);
 }
 
 // run executes the test
