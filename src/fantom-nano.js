@@ -75,13 +75,13 @@ export const ErrorMessages = {
     [ErrorCodes.ERR_BAD_REQUEST_HEADER]: "Invalid request header sent to the hw wallet.",
 
     // Unknown service class CLA received.
-    [ErrorCodes.ERR_UNKNOWN_CLA]: "Unknown, or rejected service class.",
+    [ErrorCodes.ERR_UNKNOWN_CLA]: "Unknown service class, please use correct service identifier.",
 
     // Unknown instruction arrived.
-    [ErrorCodes.ERR_UNKNOWN_INS]: "Unknown instruction sent.",
+    [ErrorCodes.ERR_UNKNOWN_INS]: "Unknown instruction sent, please send a supported instruction.",
 
     // Request is not valid in the current context.
-    [ErrorCodes.ERR_INVALID_STATE]: "Invalid instruction state.",
+    [ErrorCodes.ERR_INVALID_STATE]: "Invalid instruction state, the instruction sequence did not follow the protocol.",
 
     // Request contains invalid parameters P1, P2, or Lc.
     [ErrorCodes.ERR_INVALID_PARAMETERS]: "Invalid instruction parameters.",
@@ -93,7 +93,7 @@ export const ErrorMessages = {
     [ErrorCodes.ERR_REJECTED_BY_USER]: "User rejected requested action.",
 
     // Action rejected by security policy.
-    [ErrorCodes.ERR_REJECTED_BY_POLICY]: "Requested action is prohibited by security policy.",
+    [ErrorCodes.ERR_REJECTED_BY_POLICY]: "Requested action has been denied by security policy.",
 
     // Device is locked.
     [ErrorCodes.ERR_DEVICE_LOCKED]: "Can not proceed with the instruction, please unlock the device.",
@@ -164,16 +164,15 @@ export default class FantomNano {
         // set the list of supported methods
         this.methods = [
             "getVersion",
-            "getAddress",
-            "listAddresses",
-            "getPublicKey",
+            "deriveAddress",
+            "derivePublicKey",
             "signTransaction"
         ];
 
         // wrap local methods within the transport layer
         // this will allow the transport layer to handle API lock and inform us
         // if another function is being resolved so we don't get into a race conditions.
-        // Some function require user interaction with the device and another instruction
+        // Some functions require user interaction with the device and another instruction
         // can not be executed until the active one finished. If we send another APDU
         // in the mean time, the Fantom app will restart the Ledger device to protect
         // it against malicious attempts to abuse possible weaknesses of the internal
@@ -181,7 +180,7 @@ export default class FantomNano {
         this.transport.decorateAppAPIMethods(this, this.methods, ledgerAppKey);
 
         // reference send function locally and wrap it in a status code
-        // conversion wrapper so exceptions have app aware error messages
+        // conversion wrapper so exceptions have app-aware error messages
         this.send = wrapConvertError(this.transport.send);
     }
 
@@ -343,7 +342,8 @@ export default class FantomNano {
         const txRaw = new Transaction(tx, this.getTransactionSignatureOptions());
 
         // get the main set of data and add chain id
-        // so we are EIP155 compliant
+        // so we are EIP155 compliant. It's a basic mitigation
+        // to replay attacks.
         const items = txRaw.raw.slice(0, 6).concat([
             toBuffer(txRaw.getChainId()),
             stripZeros(toBuffer(0)),
@@ -358,7 +358,7 @@ export default class FantomNano {
      *
      * @param {number} accountId Zero based sending account identifier.
      * @param {number} addressId Zero based sending address identifier.
-     * @param {{}|Transaction} tx Transaction details. Please check the documentation for the structure.
+     * @param {{}} tx Transaction details. Please check the documentation for the structure.
      * @returns {Promise<{}>}
      */
     async signTransaction(accountId, addressId, tx) {
@@ -435,33 +435,55 @@ export default class FantomNano {
             });
         };
 
+        // panic: reset the device state with invalid (init) instruction
+        const panicResetState = async () => {
+            // what params will be sent
+            const p1 = 0x01;
+            const p2 = 0x00;
+            const data = Buffer.alloc(0);
+
+            // send the RLP encoded transaction chunk to the device
+            return await this.send(CLA, INS.SIGN_TRANSACTION, p1, p2, data);
+        };
+
         // get the raw transaction data which will be transmitted for signing
         const txBuffer = this.getRawTransaction(tx);
 
-        // make chunks for sending to ledger device
-        // we potentially have to split the data for U2F transport
+        // make chunks of the raw transaction data which will be send to the ledger device
+        // we potentially have to split the data for U2F transport due to limited available packet size
         const chunks = [];
         const parts = Math.ceil(txBuffer.length / MAX_APDU_CHUNK_LENGTH);
         for (let i = 0; i < parts; i++) {
             chunks [i] = txBuffer.slice(i * MAX_APDU_CHUNK_LENGTH, (i + 1) * MAX_APDU_CHUNK_LENGTH);
         }
 
-        // initialize the signing process first
-        await step1Init(this.getBip32Path(accountId, addressId));
+        // initialize the signing process first (here we send BIP32 path for signing key derivation)
+        const ok = await step1Init(this.getBip32Path(accountId, addressId));
+        Assert.check(ok);
 
         // transfer chunks of data one by one
-        await chunks.reduce(async (previous, next) => {
+        const finalStatus = await chunks.reduce(async (previous, next) => {
             // wait for the previous to finish
             const res = await previous;
 
             // we may not need to transfer the last chunk if the Ledger already signalled that it doesn't
-            // need it (probably because the last chunk has only empty v, r, and s values
+            // need it, so let's test the response code and act accordingly.
             if (SIGN_STATE.COLLECT === res) {
                 return step2TxTransfer(next);
             } else {
                 return Promise.resolve(SIGN_STATE.FINALIZE);
             }
         }, Promise.resolve(SIGN_STATE.COLLECT));
+
+        // make sure the ledger device is ready to sign the transaction
+        // if not we have to reset the state and throw an error
+        if (finalStatus !== SIGN_STATE.FINALIZE) {
+            // reset the signing state
+            await panicResetState();
+
+            // throw an error, we already failed and trying to finalize the signature is pointless
+            throw new Error("Transaction data was not recognized on the Ledger device!");
+        }
 
         // confirm signature processing on the device and request
         // the signature data to be returned
@@ -481,10 +503,7 @@ export default class FantomNano {
             this.getTransactionSignatureOptions()
         );
 
-        console.log("Signature Valid? ", txFinal.verifySignature() ? "true" : 'false');
-        console.log("Sender: ", buffer2Hex(txFinal.getSenderAddress()));
-        console.log("PubKey: ", buffer2Hex(txFinal.getSenderPublicKey()));
-
+        // return the signed tx structure with all the important details
         return {
             v: sig.v + ((FANTOM_CHAIN_ID * 2) + 8),
             r: sig.r,
