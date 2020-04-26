@@ -1,7 +1,7 @@
 {
   "name": "fantom-ledgerjs",
   "description": "Fantom Ledger Hardware Wallet High Level API",
-  "version": "0.1.7",
+  "version": "1.0.4",
   "files": [
     "lib"
   ],
