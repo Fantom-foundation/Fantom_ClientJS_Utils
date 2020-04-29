@@ -27,7 +27,8 @@
     "ethereumjs-util": "^6.2.0",
     "node-int64": "^0.4.0",
     "rlp": "^2.2.4",
-    "u2f-api": "^1.1.1"
+    "u2f-api": "^1.1.1",
+    "web3-utils": "^1.2.7"
   },
   "devDependencies": {
     "@babel/cli": "^7.8.4",
@@ -35,13 +36,16 @@
     "@babel/plugin-proposal-class-properties": "^7.8.3",
     "@babel/plugin-transform-runtime": "^7.9.0",
     "@babel/preset-env": "^7.9.5",
-    "@ledgerhq/hw-transport-node-hid": "^5.13.1"
+    "@ledgerhq/hw-transport-node-hid": "^5.13.1",
+    "chai": "^4.2.0",
+    "mocha": "^7.1.2"
   },
   "scripts": {
     "clean": "bash ./tools/clean.sh",
     "build": "bash ./tools/build.sh",
     "build-example": "babel --source-maps -d example/lib example/src",
-    "example": "npm run clean >/dev/null 2>&1 && npm run build > /dev/null 2>&1 && npm run build-example >/dev/null 2>&1 && node example/lib/example.js"
+    "example": "npm run clean >/dev/null 2>&1 && npm run build > /dev/null 2>&1 && npm run build-example >/dev/null 2>&1 && node example/lib/example.js",
+    "test": "npm run build && mocha"
   },
   "babel": {
     "presets": [
