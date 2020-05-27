@@ -41,7 +41,7 @@ const SFC_FUNCTIONS = {
  * We expect all parameters to be uint256 for now, no other params are needed so far.
  *
  * @param {string} hash SFC function hash.
- * @param {[number]} params List of parameters to be added to the call.
+ * @param {[number|string]} params List of parameters to be added to the call.
  * @return {string}
  */
 function formatCall(hash, params) {
