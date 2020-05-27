@@ -47,7 +47,10 @@ const SFC_FUNCTIONS = {
 function formatCall(hash, params) {
     let result = hash;
     if (Array.isArray(params) && (0 < params.length)) {
-        result = params.reduce((previous, value) => previous + web3Utils.leftPad(value, UINT256_LEFT_PAD).replace(/^0x/i, ''), hash);
+        result = params.reduce((previous, value) =>
+            previous + web3Utils.leftPad(value, UINT256_LEFT_PAD).replace(/^0x/i, ''),
+            hash
+        );
     }
     return result;
 }
@@ -83,7 +86,7 @@ function createDelegationTx(amount, to) {
         gasLimit: DEFAULT_GAS_LIMIT,
         to: SFC_CONTRACT_ADDRESS, /* SFC Contract */
         value: web3Utils.numberToHex(web3Utils.toWei(amount.toString(10), "ether")),
-        data: formatCall(SFC_FUNCTIONS.CREATE_DELEGATION, [to]),
+        data: formatCall(SFC_FUNCTIONS.CREATE_DELEGATION, [web3Utils.numberToHex(to)]),
         chainId: OPERA_CHAIN_ID
     };
 }
@@ -136,7 +139,7 @@ function claimDelegationRewardsTx(maxEpochs) {
         gasLimit: DEFAULT_GAS_LIMIT,
         to: SFC_CONTRACT_ADDRESS, /* SFC Contract */
         value: ZERO_AMOUNT,
-        data: formatCall(SFC_FUNCTIONS.CLAIM_DELEGATOR_REWARDS, [maxEpochs]),
+        data: formatCall(SFC_FUNCTIONS.CLAIM_DELEGATOR_REWARDS, [web3Utils.numberToHex(maxEpochs)]),
         chainId: OPERA_CHAIN_ID
     };
 }
@@ -161,7 +164,7 @@ function claimValidatorRewardsTx(maxEpochs) {
         gasLimit: DEFAULT_GAS_LIMIT,
         to: SFC_CONTRACT_ADDRESS, /* SFC Contract */
         value: ZERO_AMOUNT,
-        data: formatCall(SFC_FUNCTIONS.CLAIM_VALIDATOR_REWARDS, [maxEpochs]),
+        data: formatCall(SFC_FUNCTIONS.CLAIM_VALIDATOR_REWARDS, [web3Utils.numberToHex(maxEpochs)]),
         chainId: OPERA_CHAIN_ID
     };
 }
@@ -214,7 +217,10 @@ function prepareToWithdrawDelegationPartTx(requestId, amount) {
         gasLimit: DEFAULT_GAS_LIMIT,
         to: SFC_CONTRACT_ADDRESS, /* SFC Contract */
         value: ZERO_AMOUNT,
-        data: formatCall(SFC_FUNCTIONS.PREP_DELEGATION_WITHDRAW_PART, [requestId, web3Utils.numberToHex(web3Utils.toWei(amount.toString(10), "ether"))]),
+        data: formatCall(SFC_FUNCTIONS.PREP_DELEGATION_WITHDRAW_PART, [
+            web3Utils.numberToHex(requestId),
+            web3Utils.numberToHex(web3Utils.toWei(amount.toString(10), "ether"))
+        ]),
         chainId: OPERA_CHAIN_ID
     };
 }
@@ -241,7 +247,7 @@ function withdrawPartTx(requestId) {
         gasLimit: DEFAULT_GAS_LIMIT,
         to: SFC_CONTRACT_ADDRESS, /* SFC Contract */
         value: ZERO_AMOUNT,
-        data: formatCall(SFC_FUNCTIONS.WITHDRAW_PART_BY_REQUEST, [requestId]),
+        data: formatCall(SFC_FUNCTIONS.WITHDRAW_PART_BY_REQUEST, [web3Utils.numberToHex(requestId)]),
         chainId: OPERA_CHAIN_ID
     };
 }
