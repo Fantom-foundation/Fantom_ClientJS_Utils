@@ -198,7 +198,7 @@ function prepareToWithdrawDelegationTx() {
  * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
  */
 function prepareToWithdrawDelegationPartTx(requestId, amount) {
-    // request id has to to be uint
+    // request id has to be uint
     if (!Number.isInteger(requestId) || (0 >= requestId)) {
         throw 'Request id must be a valid numeric identifier.';
     }
@@ -230,7 +230,7 @@ function prepareToWithdrawDelegationPartTx(requestId, amount) {
  * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
  */
 function withdrawPartTx(requestId) {
-    // request id has to to be uint
+    // request id has to be uint
     if (!Number.isInteger(requestId) || (0 >= requestId)) {
         throw 'Request id must be a valid numeric identifier.';
     }

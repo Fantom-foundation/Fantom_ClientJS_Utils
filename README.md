@@ -27,3 +27,9 @@ Ledger device will always ask you for a permission before opening the app.
 
 Builds the app for production to the `build` folder.<br />
 It correctly bundles in production mode and optimizes the build for the best performance.
+
+### `npm test`
+
+Executes Mocha/Chai unit tests on the SFC support library. These tests cover building SFC transaction
+calls for the most common delegations and staking related operations supported by the SFC contract.
+   
