@@ -19,7 +19,7 @@ const OPERA_CHAIN_ID = '0xfa';
 
 // SFC_FUNCTIONS represents a list of hashes of SFC contract state mutable functions
 // we call using signed transactions.
-// NOTE: We have the calls hashed for SFC tag 1.0.0!
+// NOTE: We have the calls hashed for SFC release tag 1.1.0-rc1!
 const SFC_FUNCTIONS = {
     CREATE_STAKE: '0xcc8c2120', // createStake(bytes metadata)
     CREATE_DELEGATION: '0xc312eb07', // createDelegation(uint256 to)
