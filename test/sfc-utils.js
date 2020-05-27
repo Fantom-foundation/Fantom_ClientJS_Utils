@@ -36,16 +36,58 @@ describe('SFC Transaction Builder', () => {
             expect(sfc_utils.default.createDelegationTx.bind(sfc_utils.default, 0, 17)).to.throw('Amount value can not be lower than minimal delegation amount.');
         });
 
+        it('should reject small amount', () => {
+            expect(sfc_utils.default.createDelegationTx.bind(sfc_utils.default, 0.95, 17)).to.throw('Amount value can not be lower than minimal delegation amount.');
+        });
+
         it('should reject negative validator id', () => {
             expect(sfc_utils.default.createDelegationTx.bind(sfc_utils.default, 1, -1)).to.throw('Validator id must be positive unsigned integer value.');
         });
 
-        it('should reject negative validator id', () => {
+        it('should reject zero validator id', () => {
             expect(sfc_utils.default.createDelegationTx.bind(sfc_utils.default, 1, 0)).to.throw('Validator id must be positive unsigned integer value.');
         });
 
         it('should reject invalid validator id', () => {
             expect(sfc_utils.default.createDelegationTx.bind(sfc_utils.default, 1, 1.5)).to.throw('Validator id must be positive unsigned integer value.');
+        });
+    });
+
+    // increase delegation
+    describe('increase delegation amount', () => {
+        // create the transaction
+        const tx = sfc_utils.default.increaseDelegationTx(123456.654321);
+
+        it('should be correct SFC address', () => {
+            expect(tx.to).to.equal('0xfc00face00000000000000000000000000000000');
+        });
+
+        it('should be correct Opera chain', () => {
+            expect(tx.chainId).to.equal('0xfa');
+        });
+
+        it('should be correct contract amount', () => {
+            expect(tx.value).to.equal('0x1a2499408b8fb7141000');
+        });
+
+        it('should be expected gas amount', () => {
+            expect(tx.gasLimit).to.equal('0xabe0');
+        });
+
+        it('should have correct serialized call input', () => {
+            expect(tx.data).to.equal('0x3a274ff6');
+        });
+
+        it('should reject negative amount', () => {
+            expect(sfc_utils.default.increaseDelegationTx.bind(sfc_utils.default, -1)).to.throw('Amount value can not be lower than minimal delegation amount.');
+        });
+
+        it('should reject zero amount', () => {
+            expect(sfc_utils.default.increaseDelegationTx.bind(sfc_utils.default, 0)).to.throw('Amount value can not be lower than minimal delegation amount.');
+        });
+
+        it('should reject small amount', () => {
+            expect(sfc_utils.default.increaseDelegationTx.bind(sfc_utils.default, 0.95)).to.throw('Amount value can not be lower than minimal delegation amount.');
         });
     });
 
@@ -71,7 +113,7 @@ describe('SFC Transaction Builder', () => {
         });
 
         it('should have correct serialized call input', () => {
-            expect(tx.data).to.equal('0xf99837e60000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000087e');
+            expect(tx.data).to.equal('0x793c45ce000000000000000000000000000000000000000000000000000000000000087e');
         });
 
         it('should reject negative epochs', () => {
@@ -109,7 +151,7 @@ describe('SFC Transaction Builder', () => {
         });
 
         it('should have correct serialized call input', () => {
-            expect(tx.data).to.equal('0xf0f947c800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000d9d');
+            expect(tx.data).to.equal('0x295cccba0000000000000000000000000000000000000000000000000000000000000d9d');
         });
 
         it('should reject negative epochs', () => {
@@ -151,6 +193,55 @@ describe('SFC Transaction Builder', () => {
         });
     });
 
+    // prepare to withdraw delegation partially
+    describe('prepare to partially withdraw delegation', () => {
+        // create the transaction
+        const tx = sfc_utils.default.prepareToWithdrawDelegationPartTx(1178921, 123456.654321);
+
+        it('should be correct SFC address', () => {
+            expect(tx.to).to.equal('0xfc00face00000000000000000000000000000000');
+        });
+
+        it('should be correct Opera chain', () => {
+            expect(tx.chainId).to.equal('0xfa');
+        });
+
+        it('should be correct contract amount', () => {
+            expect(tx.value).to.equal('0x0');
+        });
+
+        it('should be expected gas amount', () => {
+            expect(tx.gasLimit).to.equal('0xabe0');
+        });
+
+        it('should have correct serialized call input', () => {
+            expect(tx.data).to.equal('0xe7ff9e78000000000000000000000000000000000000000000000000000000000011fd29000000000000000000000000000000000000000000001a2499408b8fb7141000');
+        });
+
+        it('should reject negative amount', () => {
+            expect(sfc_utils.default.prepareToWithdrawDelegationPartTx.bind(sfc_utils.default, 1178921, -1)).to.throw('Amount value can not be lower than minimal withdraw amount.');
+        });
+
+        it('should reject zero amount', () => {
+            expect(sfc_utils.default.prepareToWithdrawDelegationPartTx.bind(sfc_utils.default, 1178921, 0)).to.throw('Amount value can not be lower than minimal withdraw amount.');
+        });
+
+        it('should reject small amount', () => {
+            expect(sfc_utils.default.prepareToWithdrawDelegationPartTx.bind(sfc_utils.default, 1178921, 0.95)).to.throw('Amount value can not be lower than minimal withdraw amount.');
+        });
+
+        it('should reject negative request id', () => {
+            expect(sfc_utils.default.prepareToWithdrawDelegationPartTx.bind(sfc_utils.default, -1, 73)).to.throw('Request id must be a valid numeric identifier.');
+        });
+
+        it('should reject zero request id', () => {
+            expect(sfc_utils.default.prepareToWithdrawDelegationPartTx.bind(sfc_utils.default, 0, 73)).to.throw('Request id must be a valid numeric identifier.');
+        });
+
+        it('should reject non-integer request id', () => {
+            expect(sfc_utils.default.prepareToWithdrawDelegationPartTx.bind(sfc_utils.default, 1.25, 73)).to.throw('Request id must be a valid numeric identifier.');
+        });
+    });
 
     // withdraw delegation
     describe('execute delegation withdraw', () => {
@@ -175,6 +266,44 @@ describe('SFC Transaction Builder', () => {
 
         it('should have correct serialized call input', () => {
             expect(tx.data).to.equal('0x16bfdd81');
+        });
+    });
+
+    // withdraw delegation
+    describe('execute partial delegation withdraw', () => {
+        // create the transaction
+        const tx = sfc_utils.default.withdrawPartTx(737373111737373);
+
+        it('should be correct SFC address', () => {
+            expect(tx.to).to.equal('0xfc00face00000000000000000000000000000000');
+        });
+
+        it('should be correct Opera chain', () => {
+            expect(tx.chainId).to.equal('0xfa');
+        });
+
+        it('should be correct contract amount', () => {
+            expect(tx.value).to.equal('0x0');
+        });
+
+        it('should be expected gas amount', () => {
+            expect(tx.gasLimit).to.equal('0xabe0');
+        });
+
+        it('should have correct serialized call input', () => {
+            expect(tx.data).to.equal('0xf8b18d8a00000000000000000000000000000000000000000000000000029ea30e645c1d');
+        });
+
+        it('should reject negative request id', () => {
+            expect(sfc_utils.default.withdrawPartTx.bind(sfc_utils.default, -1)).to.throw('Request id must be a valid numeric identifier.');
+        });
+
+        it('should reject zero request id', () => {
+            expect(sfc_utils.default.withdrawPartTx.bind(sfc_utils.default, 0)).to.throw('Request id must be a valid numeric identifier.');
+        });
+
+        it('should reject non-integer request id', () => {
+            expect(sfc_utils.default.withdrawPartTx.bind(sfc_utils.default, 1.25)).to.throw('Request id must be a valid numeric identifier.');
         });
     });
 
