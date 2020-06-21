@@ -33,7 +33,8 @@ const SFC_FUNCTIONS = {
     PREP_STAKE_WITHDRAW: '0xc41b6405', // prepareToWithdrawStake()
     WITHDRAW_DELEGATION: '0x16bfdd81', // withdrawDelegation()
     WITHDRAW_STAKE: '0xbed9d861',  // withdrawStake()
-    WITHDRAW_PART_BY_REQUEST: '0xf8b18d8a'  // partialWithdrawByRequest(uint256 wrID) returns()
+    WITHDRAW_PART_BY_REQUEST: '0xf8b18d8a',  // partialWithdrawByRequest(uint256 wrID) returns()
+    BALLOT_VOTE: '0x0121b93f' // Vote(uint256 proposal) returns ()
 };
 
 /**
@@ -266,6 +267,32 @@ function withdrawDelegationTx() {
         to: SFC_CONTRACT_ADDRESS, /* SFC Contract */
         value: ZERO_AMOUNT,
         data: formatCall(SFC_FUNCTIONS.WITHDRAW_DELEGATION, []),
+        chainId: OPERA_CHAIN_ID
+    };
+}
+
+/**
+ * ballotVote creates a transaction executing a vote on specified ballot smart contract.
+ * 
+ * Note: The vote has to be a correct and valid ballot proposal index.
+ *
+ * @param {string} ballotAddress Address of the ballot smart contract.
+ * @param {number} vote Index of the proposal the voter wants to choose.
+ * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
+ */
+function ballotVote(ballotAddress, vote) {
+    // vote has to be uint
+    if (!Number.isInteger(vote) || (0 > vote)) {
+        throw 'Vote must be a valid numeric identifier of the selected proposal.';
+    }
+
+    return {
+        nonce: undefined,
+        gasPrice: undefined,
+        gasLimit: DEFAULT_GAS_LIMIT,
+        to: ballotAddress,
+        value: ZERO_AMOUNT,
+        data: formatCall(SFC_FUNCTIONS.BALLOT_VOTE, [web3Utils.numberToHex(vote)]),
         chainId: OPERA_CHAIN_ID
     };
 }
