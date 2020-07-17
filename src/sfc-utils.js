@@ -34,6 +34,7 @@ const SFC_FUNCTIONS = {
     WITHDRAW_DELEGATION: '0x16bfdd81', // withdrawDelegation()
     WITHDRAW_STAKE: '0xbed9d861',  // withdrawStake()
     WITHDRAW_PART_BY_REQUEST: '0xf8b18d8a',  // partialWithdrawByRequest(uint256 wrID) returns()
+    UNSTASH_REWARDS: '0x876f7e2a',  // unstashRewards() returns()
     BALLOT_VOTE: '0x0121b93f' // Vote(uint256 proposal) returns ()
 };
 
@@ -267,6 +268,23 @@ function withdrawDelegationTx() {
         to: SFC_CONTRACT_ADDRESS, /* SFC Contract */
         value: ZERO_AMOUNT,
         data: formatCall(SFC_FUNCTIONS.WITHDRAW_DELEGATION, []),
+        chainId: OPERA_CHAIN_ID
+    };
+}
+
+/**
+ * unstashRewardsTx creates a transaction withdrawing stashed amount on account.
+ *
+ * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
+ */
+function unstashRewardsTx() {
+    return {
+        nonce: undefined,
+        gasPrice: undefined,
+        gasLimit: DEFAULT_GAS_LIMIT,
+        to: SFC_CONTRACT_ADDRESS, /* SFC Contract */
+        value: ZERO_AMOUNT,
+        data: formatCall(SFC_FUNCTIONS.UNSTASH_REWARDS, []),
         chainId: OPERA_CHAIN_ID
     };
 }
