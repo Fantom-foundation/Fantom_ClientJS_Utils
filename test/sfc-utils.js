@@ -1,5 +1,6 @@
 const expect = require('chai').expect;
 const sfc_utils = require('../lib/sfc-utils');
+const defi_utils = require('../lib/defi-utils');
 
 // test the SFC transactions creation
 describe('SFC Transaction Builder', () => {
@@ -307,5 +308,166 @@ describe('SFC Transaction Builder', () => {
         });
     });
 
+    // deposit DeFi
+    describe('DeFi deposit tokens tx builder', () => {
+        // create a native and non-native token tx
+        const nativeTx = defi_utils.default.defiDepositTokenTx('0xabababababababababababababababababababac', '0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF', '250000000');
+        const synthTx = defi_utils.default.defiDepositTokenTx('0xabababababababababababababababababababac', '0xacacacacacacacacacacacacacacacacacacacad', '300000000');
+
+        it('should be correct DeFi contract address', () => {
+            expect(nativeTx.to).to.equal('0xabababababababababababababababababababac');
+            expect(synthTx.to).to.equal('0xabababababababababababababababababababac');
+        });
+
+        it('should be correct Opera chain', () => {
+            expect(nativeTx.chainId).to.equal('0xfa');
+            expect(synthTx.chainId).to.equal('0xfa');
+        });
+
+        it('should be correct contract amount', () => {
+            expect(nativeTx.value).to.equal('0xee6b280');
+            expect(synthTx.value).to.equal('0x0');
+        });
+
+        it('should have correct serialized call input', () => {
+            expect(nativeTx.data).to.equal('0x47e7ef24000000000000000000000000ffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000000000000ee6b280');
+            expect(synthTx.data).to.equal('0x47e7ef24000000000000000000000000acacacacacacacacacacacacacacacacacacacad0000000000000000000000000000000000000000000000000000000011e1a300');
+        });
+    });
+
+    // withdraw DeFi
+    describe('DeFi withdraw tokens tx builder', () => {
+        // create a native and non-native token tx
+        const nativeTx = defi_utils.default.defiWithdrawDepositedTokenTx('0xabababababababababababababababababababac', '0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF', '250000000');
+        const synthTx = defi_utils.default.defiWithdrawDepositedTokenTx('0xabababababababababababababababababababac', '0xacacacacacacacacacacacacacacacacacacacad', '300000000');
+
+        it('should be correct DeFi contract address', () => {
+            expect(nativeTx.to).to.equal('0xabababababababababababababababababababac');
+            expect(synthTx.to).to.equal('0xabababababababababababababababababababac');
+        });
+
+        it('should be correct Opera chain', () => {
+            expect(nativeTx.chainId).to.equal('0xfa');
+            expect(synthTx.chainId).to.equal('0xfa');
+        });
+
+        it('should be correct contract amount', () => {
+            expect(nativeTx.value).to.equal('0x0');
+            expect(synthTx.value).to.equal('0x0');
+        });
+
+        it('should have correct serialized call input', () => {
+            expect(nativeTx.data).to.equal('0xf3fef3a3000000000000000000000000ffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000000000000ee6b280');
+            expect(synthTx.data).to.equal('0xf3fef3a3000000000000000000000000acacacacacacacacacacacacacacacacacacacad0000000000000000000000000000000000000000000000000000000011e1a300');
+        });
+    });
+
+    // buy DeFi
+    describe('DeFi buy tokens tx builder', () => {
+        // create a native and non-native token tx
+        const nativeTx = defi_utils.default.defiBuyTokenTx('0xabababababababababababababababababababa3', '0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF', '250000000');
+        const synthTx = defi_utils.default.defiBuyTokenTx('0xabababababababababababababababababababa3', '0xacacacacacacacacacacacacacacacacacacaca7', '300000000');
+
+        it('should be correct DeFi contract address', () => {
+            expect(nativeTx.to).to.equal('0xabababababababababababababababababababa3');
+            expect(synthTx.to).to.equal('0xabababababababababababababababababababa3');
+        });
+
+        it('should be correct Opera chain', () => {
+            expect(nativeTx.chainId).to.equal('0xfa');
+            expect(synthTx.chainId).to.equal('0xfa');
+        });
+
+        it('should be correct contract amount', () => {
+            expect(nativeTx.value).to.equal('0x0');
+            expect(synthTx.value).to.equal('0x0');
+        });
+
+        it('should have correct serialized call input', () => {
+            expect(nativeTx.data).to.equal('0xcce7ec13000000000000000000000000ffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000000000000ee6b280');
+            expect(synthTx.data).to.equal('0xcce7ec13000000000000000000000000acacacacacacacacacacacacacacacacacacaca70000000000000000000000000000000000000000000000000000000011e1a300');
+        });
+    });
+
+    // sell DeFi
+    describe('DeFi sell tokens tx builder', () => {
+        // create a native and non-native token tx
+        const nativeTx = defi_utils.default.defiSellTokenTx('0xabababababababababababababababababababad', '0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF', '250000000');
+        const synthTx = defi_utils.default.defiSellTokenTx('0xabababababababababababababababababababad', '0xacacacacacacacacacacacacacacacacacacaca1', '300000000');
+
+        it('should be correct DeFi contract address', () => {
+            expect(nativeTx.to).to.equal('0xabababababababababababababababababababad');
+            expect(synthTx.to).to.equal('0xabababababababababababababababababababad');
+        });
+
+        it('should be correct Opera chain', () => {
+            expect(nativeTx.chainId).to.equal('0xfa');
+            expect(synthTx.chainId).to.equal('0xfa');
+        });
+
+        it('should be correct contract amount', () => {
+            expect(nativeTx.value).to.equal('0x0');
+            expect(synthTx.value).to.equal('0x0');
+        });
+
+        it('should have correct serialized call input', () => {
+            expect(nativeTx.data).to.equal('0x6c197ff5000000000000000000000000ffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000000000000ee6b280');
+            expect(synthTx.data).to.equal('0x6c197ff5000000000000000000000000acacacacacacacacacacacacacacacacacacaca10000000000000000000000000000000000000000000000000000000011e1a300');
+        });
+    });
+
+    // borrow DeFi
+    describe('DeFi borrow tokens tx builder', () => {
+        // create a native and non-native token tx
+        const nativeTx = defi_utils.default.defiBorrowTokenTx('0xabababababababababababababababababababad', '0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF', '250000000');
+        const synthTx = defi_utils.default.defiBorrowTokenTx('0xabababababababababababababababababababad', '0xacacacacacacacacacacacacacacacacacacaca1', '300000000');
+
+        it('should be correct DeFi contract address', () => {
+            expect(nativeTx.to).to.equal('0xabababababababababababababababababababad');
+            expect(synthTx.to).to.equal('0xabababababababababababababababababababad');
+        });
+
+        it('should be correct Opera chain', () => {
+            expect(nativeTx.chainId).to.equal('0xfa');
+            expect(synthTx.chainId).to.equal('0xfa');
+        });
+
+        it('should be correct contract amount', () => {
+            expect(nativeTx.value).to.equal('0x0');
+            expect(synthTx.value).to.equal('0x0');
+        });
+
+        it('should have correct serialized call input', () => {
+            expect(nativeTx.data).to.equal('0x4b8a3529000000000000000000000000ffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000000000000ee6b280');
+            expect(synthTx.data).to.equal('0x4b8a3529000000000000000000000000acacacacacacacacacacacacacacacacacacaca10000000000000000000000000000000000000000000000000000000011e1a300');
+        });
+    });
+
+    // repay DeFi
+    describe('DeFi repay tokens tx builder', () => {
+        // create a native and non-native token tx
+        const nativeTx = defi_utils.default.defiRepayTokenTx('0xabababababababababababababababababababaf', '0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF', '250000000');
+        const synthTx = defi_utils.default.defiRepayTokenTx('0xabababababababababababababababababababaf', '0xacacacacacacacacacacacacacacacacacacaca5', '300000000');
+
+        it('should be correct DeFi contract address', () => {
+            expect(nativeTx.to).to.equal('0xabababababababababababababababababababaf');
+            expect(synthTx.to).to.equal('0xabababababababababababababababababababaf');
+        });
+
+        it('should be correct Opera chain', () => {
+            expect(nativeTx.chainId).to.equal('0xfa');
+            expect(synthTx.chainId).to.equal('0xfa');
+        });
+
+        it('should be correct contract amount', () => {
+            expect(nativeTx.value).to.equal('0x0');
+            expect(synthTx.value).to.equal('0x0');
+        });
+
+        it('should have correct serialized call input', () => {
+            expect(nativeTx.data).to.equal('0x22867d78000000000000000000000000ffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000000000000ee6b280');
+            expect(synthTx.data).to.equal('0x22867d78000000000000000000000000acacacacacacacacacacacacacacacacacacaca50000000000000000000000000000000000000000000000000000000011e1a300');
+        });
+    });
 });
 

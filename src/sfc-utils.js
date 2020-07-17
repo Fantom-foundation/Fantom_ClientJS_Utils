@@ -3,7 +3,7 @@ import web3Utils from "web3-utils";
 // SFC_CONTRACT_ADDRESS is the address on which the SFC smart contract is deployed.
 const SFC_CONTRACT_ADDRESS = '0xfc00face00000000000000000000000000000000';
 
-// DEFAULT_GAS_LIMIT represents the maximum amout of gas we are willing
+// DEFAULT_GAS_LIMIT represents the maximum amount of gas we are willing
 // to pay for the SFC call.
 const DEFAULT_GAS_LIMIT = '0xabe0';
 
@@ -273,7 +273,7 @@ function withdrawDelegationTx() {
 
 /**
  * ballotVote creates a transaction executing a vote on specified ballot smart contract.
- * 
+ *
  * Note: The vote has to be a correct and valid ballot proposal index.
  *
  * @param {string} ballotAddress Address of the ballot smart contract.
