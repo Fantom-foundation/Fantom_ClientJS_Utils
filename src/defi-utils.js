@@ -201,6 +201,107 @@ function defiSellTokenTx(liquidityPoolContract, tokenAddress, amount) {
 }
 
 /**
+ * defiTradeTokenTx creates a base transaction for trading source token for target token.
+ * The trade uses fUSD internally to calculate the trade value. A trading fee is applied
+ * top the fUSD value. Native FTM tokens can not be traded this way.
+ *
+ * @param {string} liquidityPoolContract
+ * @param {string} fromTokenAddress
+ * @param {string} toTokenAddress
+ * @param {string|{BN}} amountSold
+ * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
+ */
+function defiTradeTokenTx(liquidityPoolContract, fromTokenAddress, toTokenAddress, amountSold) {
+    // create web3.js instance
+    const web3 = new Web3();
+
+    // make the transaction
+    return {
+        nonce: undefined,
+        gasPrice: undefined,
+        gasLimit: DEFAULT_GAS_LIMIT,
+        to: liquidityPoolContract,
+        value: ZERO_AMOUNT,
+        data: web3.eth.abi.encodeFunctionCall({
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "address",
+                    "name": "_fromToken",
+                    "type": "address"
+                },
+                {
+                    "internalType": "address",
+                    "name": "_toToken",
+                    "type": "address"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "_amount",
+                    "type": "uint256"
+                }
+            ],
+            "name": "trade",
+            "outputs": [],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, [fromTokenAddress, toTokenAddress, amountSold]),
+        chainId: OPERA_CHAIN_ID
+    };
+}
+
+/**
+ * erc20TransferTx creates a base transaction for transferring specified amount of ERC20
+ * synth token to the given recipient address.
+ *
+ * @param {string} erc20Address
+ * @param {string} recipientAddress
+ * @param {string|{BN}} amount Amount to be transfered must be given in the token's decimals.
+ * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
+ */
+function erc20TransferTx(erc20Address, recipientAddress, amount) {
+    // create web3.js instance
+    const web3 = new Web3();
+
+    // make the transaction
+    return {
+        nonce: undefined,
+        gasPrice: undefined,
+        gasLimit: DEFAULT_GAS_LIMIT,
+        to: erc20Address,
+        value: ZERO_AMOUNT,
+        data: web3.eth.abi.encodeFunctionCall({
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "address",
+                    "name": "recipient",
+                    "type": "address"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                }
+            ],
+            "name": "transfer",
+            "outputs": [
+                {
+                    "internalType": "bool",
+                    "name": "",
+                    "type": "bool"
+                }
+            ],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, [recipientAddress, amount]),
+        chainId: OPERA_CHAIN_ID
+    };
+}
+
+/**
  * defiBorrowTokenTx creates a base transaction for borrowing specified
  * tokens from the Liquidity Pool against active collateral.
  *
@@ -297,6 +398,8 @@ export default {
     defiSellTokenTx,
     defiBorrowTokenTx,
     defiRepayTokenTx,
+    defiTradeTokenTx,
+    erc20TransferTx,
     OPERA_CHAIN_ID,
     TESTNET_CHAIN_ID
 };
