@@ -19,27 +19,27 @@
   "author": "Jiri Malek <jirka.malek@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "@ledgerhq/hw-transport": "^5.13.1",
+    "@ledgerhq/hw-transport": "^5.21.0",
     "babel-runtime": "^6.26.0",
     "core-js": "^3.6.5",
-    "ethereumjs-common": "^1.5.0",
+    "ethereumjs-common": "^1.5.2",
     "ethereumjs-tx": "^2.1.2",
-    "ethereumjs-util": "^6.2.0",
+    "ethereumjs-util": "^7.0.3",
     "node-int64": "^0.4.0",
-    "rlp": "^2.2.4",
+    "rlp": "^2.2.6",
     "u2f-api": "^1.1.1",
-    "web3": "^1.2.9",
-    "web3-utils": "^1.2.7"
+    "web3": "^1.2.11",
+    "web3-utils": "^1.2.11"
   },
   "devDependencies": {
-    "@babel/cli": "^7.8.4",
-    "@babel/core": "^7.9.0",
-    "@babel/plugin-proposal-class-properties": "^7.8.3",
-    "@babel/plugin-transform-runtime": "^7.9.0",
-    "@babel/preset-env": "^7.9.5",
-    "@ledgerhq/hw-transport-node-hid": "^5.13.1",
+    "@babel/cli": "^7.10.5",
+    "@babel/core": "^7.11.0",
+    "@babel/plugin-proposal-class-properties": "^7.10.4",
+    "@babel/plugin-transform-runtime": "^7.11.0",
+    "@babel/preset-env": "^7.11.0",
+    "@ledgerhq/hw-transport-node-hid": "^5.21.0",
     "chai": "^4.2.0",
-    "mocha": "^7.1.2"
+    "mocha": "^8.1.0"
   },
   "scripts": {
     "clean": "bash ./tools/clean.sh",
