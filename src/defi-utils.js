@@ -622,6 +622,29 @@ function defiUnwrapFtm(erc20Address, amount) {
     };
 }
 
+/**
+ * defiClaimRewards creates a contract call transaction to claim accumulated rewards
+ * of excessive collateral value.
+ *
+ * @param {string} collateralAddress
+ * @returns {{gasLimit: string, data: string, chainId: string, to: *, nonce: undefined, value: string, gasPrice: undefined}}
+ */
+function defiClaimCollateralRewards(collateralAddress) {
+    // create web3.js instance
+    const web3 = new Web3();
+
+    // make the transaction
+    return {
+        nonce: undefined,
+        gasPrice: undefined,
+        gasLimit: DEFAULT_GAS_LIMIT,
+        to: collateralAddress,
+        value: ZERO_AMOUNT,
+        data: web3.eth.abi.encodeFunctionCall({}, []),
+        chainId: OPERA_CHAIN_ID
+    };
+}
+
 // what we export here
 export default {
     defiDepositTokenTx,
@@ -633,6 +656,7 @@ export default {
     defiTradeTokenTx,
     defiWrapFtm,
     defiUnwrapFtm,
+    defiClaimCollateralRewards,
     erc20TransferTx,
     erc20ApproveAmountTx,
     erc20IncreaseAllowanceTx,
