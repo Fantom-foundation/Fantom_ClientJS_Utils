@@ -440,6 +440,65 @@ function withdrawDelegationTx(to, web3Client) {
 }
 
 /**
+ * withdrawDelegationTx creates a transaction withdrawing prepared delegation.
+ *
+ * @param {int} to Id of the validator the delegation belongs to.
+ * @param {int} duration Number of seconds the lock should be be activated.
+ * @param {Web3|undefined} web3Client Optional instance of an initialized Web3 client.
+ * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
+ */
+function lockupDelegationTx(to, duration, web3Client) {
+    // validate staking id
+    if (to <= 0) {
+        throw 'Validator id must be positive unsigned integer value.';
+    }
+
+    // validate staking id to be uint
+    if (!Number.isInteger(to) || (0 >= to)) {
+        throw 'Validator id must be positive unsigned integer value.';
+    }
+
+    // validate minimal duration
+    if (!Number.isInteger(duration) || duration < (14 * 86400)) {
+        throw 'The lock duration must be at least 14 days.';
+    }
+
+    // validate maximal duration
+    if (duration > (365 * 86400)) {
+        throw 'The lock duration must be at most 365 days.';
+    }
+
+    return {
+        nonce: undefined,
+        gasPrice: undefined,
+        gasLimit: DEFAULT_GAS_LIMIT,
+        to: SFC_CONTRACT_ADDRESS, /* SFC Contract */
+        value: ZERO_AMOUNT,
+        data: encodeCall(web3Client, {
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "lockDuration",
+                    "type": "uint256"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "toStakerID",
+                    "type": "uint256"
+                }
+            ],
+            "name": "lockUpDelegation",
+            "outputs": [],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, [web3Utils.numberToHex(duration), web3Utils.numberToHex(to)]),
+        chainId: OPERA_CHAIN_ID
+    };
+}
+
+/**
  * unstashRewardsTx creates a transaction withdrawing stashed amount on account.
  *
  * @param {Web3|undefined} web3Client Optional instance of an initialized Web3 client.
@@ -516,6 +575,7 @@ export default {
     prepareToWithdrawDelegationTx,
     withdrawDelegationTx,
     withdrawPartTx,
+    lockupDelegationTx,
     unstashRewardsTx,
     ballotVote
 };
