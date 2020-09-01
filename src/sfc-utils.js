@@ -1,4 +1,6 @@
+import Web3 from "web3";
 import web3Utils from "web3-utils";
+import {AbiItem} from 'web3-utils';
 
 // SFC_CONTRACT_ADDRESS is the address on which the SFC smart contract is deployed.
 const SFC_CONTRACT_ADDRESS = '0xfc00face00000000000000000000000000000000';
@@ -7,54 +9,29 @@ const SFC_CONTRACT_ADDRESS = '0xfc00face00000000000000000000000000000000';
 // to pay for the SFC call.
 const DEFAULT_GAS_LIMIT = '0xabe0';
 
-// UINT256_LEFT_PAD is the number of chars a uint256 number is padded
-// to on SFC contract calls' params (2 chars for each of the 32 bytes)
-const UINT256_LEFT_PAD = 64;
-
 // ZERO_AMOUNT represents zero amount transferred on some calls.
 const ZERO_AMOUNT = '0x0';
 
 // OPERA_CHAIN_ID is the chain id used by Fantom Opera blockchain.
 const OPERA_CHAIN_ID = '0xfa';
 
-// SFC_FUNCTIONS represents a list of hashes of SFC contract state mutable functions
-// we call using signed transactions.
-// NOTE: We have the calls hashed for SFC release tag 1.1.0-rc1!
-const SFC_FUNCTIONS = {
-    CREATE_STAKE: '0xcc8c2120', // createStake(bytes metadata)
-    CREATE_DELEGATION: '0xc312eb07', // createDelegation(uint256 to)
-    CLAIM_DELEGATOR_REWARDS: '0x793c45ce', // claimDelegationRewards(uint256 maxEpochs) returns()
-    CLAIM_VALIDATOR_REWARDS: '0x295cccba', // claimValidatorRewards(uint256 maxEpochs) returns()
-    INCREASE_STAKE: '0xd9e257ef', // increaseStake()
-    INCREASE_DELEGATION: '0x3a274ff6', // increaseDelegation() returns()
-    PREP_DELEGATION_WITHDRAW_PART: '0xe7ff9e78', // prepareToWithdrawDelegationPartial(uint256 wrID, uint256 amount) returns()
-    PREP_STAKE_WITHDRAW_PART: '0xc41b6405', // prepareToWithdrawStakePartial(uint256 wrID, uint256 amount) returns()
-    PREP_DELEGATION_WITHDRAW: '0x1c333318', // PrepareToWithdrawDelegation()
-    PREP_STAKE_WITHDRAW: '0xc41b6405', // prepareToWithdrawStake()
-    WITHDRAW_DELEGATION: '0x16bfdd81', // withdrawDelegation()
-    WITHDRAW_STAKE: '0xbed9d861',  // withdrawStake()
-    WITHDRAW_PART_BY_REQUEST: '0xf8b18d8a',  // partialWithdrawByRequest(uint256 wrID) returns()
-    UNSTASH_REWARDS: '0x876f7e2a',  // unstashRewards() returns()
-    BALLOT_VOTE: '0x0121b93f' // Vote(uint256 proposal) returns ()
-};
-
 /**
- * Format a parametrized SFC call.
- * We expect all parameters to be uint256 for now, no other params are needed so far.
+ * encodeCall encodes contract call for the given ABI item
+ * and list of parameters using provided Web3 client.
+ * If the client is not provided, a new instance is made.
  *
- * @param {string} hash SFC function hash.
- * @param {[number|string]} params List of parameters to be added to the call.
- * @return {string}
+ * @param {Web3|undefined} client
+ * @param {AbiItem} abi
+ * @param {[]} params
+ * @returns {string}
  */
-function formatCall(hash, params) {
-    let result = hash;
-    if (Array.isArray(params) && (0 < params.length)) {
-        result = params.reduce((previous, value) =>
-            previous + web3Utils.leftPad(value, UINT256_LEFT_PAD).replace(/^0x/i, ''),
-            hash
-        );
+function encodeCall(client, abi, params) {
+    // make a Web3 instance if needed
+    if ("object" !== typeof client || !client.hasOwnProperty('eth')) {
+        client = new Web3();
     }
-    return result;
+
+    return client.eth.abi.encodeFunctionCall(abi, params);
 }
 
 /**
@@ -63,9 +40,10 @@ function formatCall(hash, params) {
  *
  * @param {number} amount Amount of FTM tokes to delegate.
  * @param {int} to Id of the validator to delegate to.
+ * @param {Web3|undefined} web3Client Optional instance of an initialized Web3 client.
  * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
  */
-function createDelegationTx(amount, to) {
+function createDelegationTx(amount, to, web3Client) {
     // validate amount
     if (amount < 1) {
         throw 'Amount value can not be lower than minimal delegation amount.';
@@ -88,8 +66,22 @@ function createDelegationTx(amount, to) {
         gasLimit: DEFAULT_GAS_LIMIT,
         to: SFC_CONTRACT_ADDRESS, /* SFC Contract */
         value: web3Utils.numberToHex(web3Utils.toWei(amount.toString(10), "ether")),
-        data: formatCall(SFC_FUNCTIONS.CREATE_DELEGATION, [web3Utils.numberToHex(to)]),
-        chainId: OPERA_CHAIN_ID
+        chainId: OPERA_CHAIN_ID,
+        data: encodeCall(web3Client, {
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "to",
+                    "type": "uint256"
+                }
+            ],
+            "name": "createDelegation",
+            "outputs": [],
+            "payable": true,
+            "stateMutability": "payable",
+            "type": "function"
+        }, [web3Utils.numberToHex(to)]),
     };
 }
 
@@ -101,12 +93,24 @@ function createDelegationTx(amount, to) {
  * for the transaction to be accepted on the server.
  *
  * @param {number} amount Amount of FTM tokes to delegate.
+ * @param {int} to Id of the validator to delegate to.
+ * @param {Web3|undefined} web3Client Optional instance of an initialized Web3 client.
  * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
  */
-function increaseDelegationTx(amount) {
+function increaseDelegationTx(amount, to, web3Client) {
     // validate amount
     if (!Number.isFinite(amount) || amount < 1) {
         throw 'Amount value can not be lower than minimal delegation amount.';
+    }
+
+    // validate staking id
+    if (to <= 0) {
+        throw 'Validator id must be positive unsigned integer value.';
+    }
+
+    // validate staking id to be uint
+    if (!Number.isInteger(to) || (0 >= to)) {
+        throw 'Validator id must be positive unsigned integer value.';
     }
 
     // make the transaction
@@ -116,8 +120,22 @@ function increaseDelegationTx(amount) {
         gasLimit: DEFAULT_GAS_LIMIT,
         to: SFC_CONTRACT_ADDRESS, /* SFC Contract */
         value: web3Utils.numberToHex(web3Utils.toWei(amount.toString(10), "ether")),
-        data: formatCall(SFC_FUNCTIONS.INCREASE_DELEGATION, []),
-        chainId: OPERA_CHAIN_ID
+        chainId: OPERA_CHAIN_ID,
+        data: encodeCall(web3Client, {
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "to",
+                    "type": "uint256"
+                }
+            ],
+            "name": "increaseDelegation",
+            "outputs": [],
+            "payable": true,
+            "stateMutability": "payable",
+            "type": "function"
+        }, [web3Utils.numberToHex(to)]),
     };
 }
 
@@ -127,12 +145,24 @@ function increaseDelegationTx(amount) {
  * only one parameter here, no starting epoch.
  *
  * @param {int} maxEpochs Max number of epochs to claim.
+ * @param {int} to Id of the validator to delegate to.
+ * @param {Web3|undefined} web3Client Optional instance of an initialized Web3 client.
  * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
  */
-function claimDelegationRewardsTx(maxEpochs) {
+function claimDelegationRewardsTx(maxEpochs, to, web3Client) {
     // validate staking id to be uint
     if (!Number.isInteger(maxEpochs) || (0 >= maxEpochs)) {
         throw 'Must claim at least one full epoch.';
+    }
+
+    // validate staking id
+    if (to <= 0) {
+        throw 'Validator id must be positive unsigned integer value.';
+    }
+
+    // validate staking id to be uint
+    if (!Number.isInteger(to) || (0 >= to)) {
+        throw 'Validator id must be positive unsigned integer value.';
     }
 
     return {
@@ -141,7 +171,26 @@ function claimDelegationRewardsTx(maxEpochs) {
         gasLimit: DEFAULT_GAS_LIMIT,
         to: SFC_CONTRACT_ADDRESS, /* SFC Contract */
         value: ZERO_AMOUNT,
-        data: formatCall(SFC_FUNCTIONS.CLAIM_DELEGATOR_REWARDS, [web3Utils.numberToHex(maxEpochs)]),
+        data: encodeCall(web3Client, {
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "maxEpochs",
+                    "type": "uint256"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "toStakerID",
+                    "type": "uint256"
+                }
+            ],
+            "name": "claimDelegationRewards",
+            "outputs": [],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, [web3Utils.numberToHex(maxEpochs), web3Utils.numberToHex(to)]),
         chainId: OPERA_CHAIN_ID
     };
 }
@@ -152,9 +201,10 @@ function claimDelegationRewardsTx(maxEpochs) {
  * only one parameter here, no starting epoch.
  *
  * @param {number} maxEpochs Max number of epochs to claim.
+ * @param {Web3|undefined} web3Client Optional instance of an initialized Web3 client.
  * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
  */
-function claimValidatorRewardsTx(maxEpochs) {
+function claimValidatorRewardsTx(maxEpochs, web3Client) {
     // validate staking id to be uint
     if (!Number.isInteger(maxEpochs) || (0 >= maxEpochs)) {
         throw 'Must claim at least one full epoch.';
@@ -166,7 +216,21 @@ function claimValidatorRewardsTx(maxEpochs) {
         gasLimit: DEFAULT_GAS_LIMIT,
         to: SFC_CONTRACT_ADDRESS, /* SFC Contract */
         value: ZERO_AMOUNT,
-        data: formatCall(SFC_FUNCTIONS.CLAIM_VALIDATOR_REWARDS, [web3Utils.numberToHex(maxEpochs)]),
+        data: encodeCall(web3Client, {
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "maxEpochs",
+                    "type": "uint256"
+                }
+            ],
+            "name": "claimValidatorRewards",
+            "outputs": [],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, [web3Utils.numberToHex(maxEpochs)]),
         chainId: OPERA_CHAIN_ID
     };
 }
@@ -175,16 +239,42 @@ function claimValidatorRewardsTx(maxEpochs) {
  * prepareToWithdrawDelegationTx creates a transaction preparing delegations
  * to be withdrawn.
  *
+ * @param {int} to Id of the validator the delegation belongs to.
+ * @param {Web3|undefined} web3Client Optional instance of an initialized Web3 client.
  * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
  */
-function prepareToWithdrawDelegationTx() {
+function prepareToWithdrawDelegationTx(to, web3Client) {
+    // validate staking id
+    if (to <= 0) {
+        throw 'Validator id must be positive unsigned integer value.';
+    }
+
+    // validate staking id to be uint
+    if (!Number.isInteger(to) || (0 >= to)) {
+        throw 'Validator id must be positive unsigned integer value.';
+    }
+
     return {
         nonce: undefined,
         gasPrice: undefined,
         gasLimit: DEFAULT_GAS_LIMIT,
         to: SFC_CONTRACT_ADDRESS, /* SFC Contract */
         value: ZERO_AMOUNT,
-        data: formatCall(SFC_FUNCTIONS.PREP_DELEGATION_WITHDRAW, []),
+        data: encodeCall(web3Client, {
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "toStakerID",
+                    "type": "uint256"
+                }
+            ],
+            "name": "prepareToWithdrawDelegation",
+            "outputs": [],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, [web3Utils.numberToHex(to)]),
         chainId: OPERA_CHAIN_ID
     };
 }
@@ -199,10 +289,12 @@ function prepareToWithdrawDelegationTx() {
  * request id to process the prepared withdrawal.
  *
  * @param {number} requestId Unique and unused identifier of the withdraw request.
+ * @param {int} to Id of the validator the delegation belongs to.
  * @param {number} amount Amount of FTM tokes to be prepared for withdraw.
+ * @param {Web3|undefined} web3Client Optional instance of an initialized Web3 client.
  * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
  */
-function prepareToWithdrawDelegationPartTx(requestId, amount) {
+function prepareToWithdrawDelegationPartTx(requestId, to, amount, web3Client) {
     // request id has to be uint
     if (!Number.isInteger(requestId) || (0 >= requestId)) {
         throw 'Request id must be a valid numeric identifier.';
@@ -213,16 +305,50 @@ function prepareToWithdrawDelegationPartTx(requestId, amount) {
         throw 'Amount value can not be lower than minimal withdraw amount.';
     }
 
+    // validate staking id
+    if (to <= 0) {
+        throw 'Validator id must be positive unsigned integer value.';
+    }
+
+    // validate staking id to be uint
+    if (!Number.isInteger(to) || (0 >= to)) {
+        throw 'Validator id must be positive unsigned integer value.';
+    }
+
     return {
         nonce: undefined,
         gasPrice: undefined,
         gasLimit: DEFAULT_GAS_LIMIT,
         to: SFC_CONTRACT_ADDRESS, /* SFC Contract */
         value: ZERO_AMOUNT,
-        data: formatCall(SFC_FUNCTIONS.PREP_DELEGATION_WITHDRAW_PART, [
+        data: encodeCall(web3Client, {
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "wrID",
+                    "type": "uint256"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "toStakerID",
+                    "type": "uint256"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                }
+            ],
+            "name": "prepareToWithdrawDelegationPartial",
+            "outputs": [],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, [
             web3Utils.numberToHex(requestId),
-            web3Utils.numberToHex(web3Utils.toWei(amount.toString(10), "ether"))
-        ]),
+            web3Utils.numberToHex(to),
+            web3Utils.numberToHex(web3Utils.toWei(amount.toString(10), "ether"))]),
         chainId: OPERA_CHAIN_ID
     };
 }
@@ -235,9 +361,10 @@ function prepareToWithdrawDelegationPartTx(requestId, amount) {
  * correctly.
  *
  * @param {number} requestId Unique and unused identifier of the withdraw request.
+ * @param {Web3|undefined} web3Client Optional instance of an initialized Web3 client.
  * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
  */
-function withdrawPartTx(requestId) {
+function withdrawPartTx(requestId, web3Client) {
     // request id has to be uint
     if (!Number.isInteger(requestId) || (0 >= requestId)) {
         throw 'Request id must be a valid numeric identifier.';
@@ -249,7 +376,21 @@ function withdrawPartTx(requestId) {
         gasLimit: DEFAULT_GAS_LIMIT,
         to: SFC_CONTRACT_ADDRESS, /* SFC Contract */
         value: ZERO_AMOUNT,
-        data: formatCall(SFC_FUNCTIONS.WITHDRAW_PART_BY_REQUEST, [web3Utils.numberToHex(requestId)]),
+        data: encodeCall(web3Client, {
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "wrID",
+                    "type": "uint256"
+                }
+            ],
+            "name": "partialWithdrawByRequest",
+            "outputs": [],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, [web3Utils.numberToHex(requestId)]),
         chainId: OPERA_CHAIN_ID
     };
 }
@@ -258,16 +399,42 @@ function withdrawPartTx(requestId) {
 /**
  * withdrawDelegationTx creates a transaction withdrawing prepared delegation.
  *
+ * @param {int} to Id of the validator the delegation belongs to.
+ * @param {Web3|undefined} web3Client Optional instance of an initialized Web3 client.
  * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
  */
-function withdrawDelegationTx() {
+function withdrawDelegationTx(to, web3Client) {
+    // validate staking id
+    if (to <= 0) {
+        throw 'Validator id must be positive unsigned integer value.';
+    }
+
+    // validate staking id to be uint
+    if (!Number.isInteger(to) || (0 >= to)) {
+        throw 'Validator id must be positive unsigned integer value.';
+    }
+
     return {
         nonce: undefined,
         gasPrice: undefined,
         gasLimit: DEFAULT_GAS_LIMIT,
         to: SFC_CONTRACT_ADDRESS, /* SFC Contract */
         value: ZERO_AMOUNT,
-        data: formatCall(SFC_FUNCTIONS.WITHDRAW_DELEGATION, []),
+        data: encodeCall(web3Client, {
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "toStakerID",
+                    "type": "uint256"
+                }
+            ],
+            "name": "withdrawDelegation",
+            "outputs": [],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, [web3Utils.numberToHex(to)]),
         chainId: OPERA_CHAIN_ID
     };
 }
@@ -275,16 +442,25 @@ function withdrawDelegationTx() {
 /**
  * unstashRewardsTx creates a transaction withdrawing stashed amount on account.
  *
+ * @param {Web3|undefined} web3Client Optional instance of an initialized Web3 client.
  * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
  */
-function unstashRewardsTx() {
+function unstashRewardsTx(web3Client) {
     return {
         nonce: undefined,
         gasPrice: undefined,
         gasLimit: DEFAULT_GAS_LIMIT,
         to: SFC_CONTRACT_ADDRESS, /* SFC Contract */
         value: ZERO_AMOUNT,
-        data: formatCall(SFC_FUNCTIONS.UNSTASH_REWARDS, []),
+        data: encodeCall(web3Client, {
+            "constant": false,
+            "inputs": [],
+            "name": "unstashRewards",
+            "outputs": [],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, []),
         chainId: OPERA_CHAIN_ID
     };
 }
@@ -296,9 +472,10 @@ function unstashRewardsTx() {
  *
  * @param {string} ballotAddress Address of the ballot smart contract.
  * @param {number} vote Index of the proposal the voter wants to choose.
+ * @param {Web3|undefined} web3Client Optional instance of an initialized Web3 client.
  * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
  */
-function ballotVote(ballotAddress, vote) {
+function ballotVote(ballotAddress, vote, web3Client) {
     // vote has to be uint
     if (!Number.isInteger(vote) || (0 > vote)) {
         throw 'Vote must be a valid numeric identifier of the selected proposal.';
@@ -310,7 +487,21 @@ function ballotVote(ballotAddress, vote) {
         gasLimit: DEFAULT_GAS_LIMIT,
         to: ballotAddress,
         value: ZERO_AMOUNT,
-        data: formatCall(SFC_FUNCTIONS.BALLOT_VOTE, [web3Utils.numberToHex(vote)]),
+        data: encodeCall(web3Client, {
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "proposal",
+                    "type": "uint256"
+                }
+            ],
+            "name": "vote",
+            "outputs": [],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, [web3Utils.numberToHex(vote)]),
         chainId: OPERA_CHAIN_ID
     };
 }
