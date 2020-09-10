@@ -98,6 +98,10 @@ function createDelegationTx(amount, to, web3Client) {
  * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
  */
 function increaseDelegationTx(amount, to, web3Client) {
+    // not available anymore
+    throw 'Can not increase delegation on current SFC.';
+
+    /*
     // validate amount
     if (!Number.isFinite(amount) || amount < 1) {
         throw 'Amount value can not be lower than minimal delegation amount.';
@@ -118,7 +122,7 @@ function increaseDelegationTx(amount, to, web3Client) {
         nonce: undefined,
         gasPrice: undefined,
         gasLimit: DEFAULT_GAS_LIMIT,
-        to: SFC_CONTRACT_ADDRESS, /* SFC Contract */
+        to: SFC_CONTRACT_ADDRESS,
         value: web3Utils.numberToHex(web3Utils.toWei(amount.toString(10), "ether")),
         chainId: OPERA_CHAIN_ID,
         data: encodeCall(web3Client, {
@@ -137,6 +141,57 @@ function increaseDelegationTx(amount, to, web3Client) {
             "type": "function"
         }, [web3Utils.numberToHex(to)]),
     };
+    */
+}
+
+/**
+ * claimDelegationRewardsCompoundTx creates a new delegator rewards claiming transaction.
+ * The call transfers all the rewards from SFC back to the stake in single transaction.
+ *
+ * @param {int} maxEpochs Max number of epochs to claim.
+ * @param {int} to Id of the validator to delegate to.
+ * @param {Web3|undefined} web3Client Optional instance of an initialized Web3 client.
+ * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
+ */
+function claimDelegationRewardsCompoundTx(maxEpochs, to, web3Client) {
+    // validate staking id to be uint
+    if (!Number.isInteger(maxEpochs) || (0 >= maxEpochs)) {
+        throw 'Must claim at least one full epoch.';
+    }
+
+    // validate staking id to be uint
+    if (!Number.isInteger(to) || (0 >= to)) {
+        throw 'Validator id must be positive unsigned integer value.';
+    }
+
+    return {
+        nonce: undefined,
+        gasPrice: undefined,
+        gasLimit: DEFAULT_GAS_LIMIT,
+        to: SFC_CONTRACT_ADDRESS, /* SFC Contract */
+        value: ZERO_AMOUNT,
+        data: encodeCall(web3Client, {
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "maxEpochs",
+                    "type": "uint256"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "toStakerID",
+                    "type": "uint256"
+                }
+            ],
+            "name": "claimDelegationCompoundRewards",
+            "outputs": [],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, [web3Utils.numberToHex(maxEpochs), web3Utils.numberToHex(to)]),
+        chainId: OPERA_CHAIN_ID
+    };
 }
 
 /**
@@ -153,11 +208,6 @@ function claimDelegationRewardsTx(maxEpochs, to, web3Client) {
     // validate staking id to be uint
     if (!Number.isInteger(maxEpochs) || (0 >= maxEpochs)) {
         throw 'Must claim at least one full epoch.';
-    }
-
-    // validate staking id
-    if (to <= 0) {
-        throw 'Validator id must be positive unsigned integer value.';
     }
 
     // validate staking id to be uint
@@ -303,11 +353,6 @@ function prepareToWithdrawDelegationPartTx(requestId, to, amount, web3Client) {
     // validate amount
     if (!Number.isFinite(amount) || amount < 1) {
         throw 'Amount value can not be lower than minimal withdraw amount.';
-    }
-
-    // validate staking id
-    if (to <= 0) {
-        throw 'Validator id must be positive unsigned integer value.';
     }
 
     // validate staking id to be uint
@@ -570,6 +615,7 @@ export default {
     createDelegationTx,
     increaseDelegationTx,
     claimDelegationRewardsTx,
+    claimDelegationRewardsCompoundTx,
     claimValidatorRewardsTx,
     prepareToWithdrawDelegationPartTx,
     prepareToWithdrawDelegationTx,
