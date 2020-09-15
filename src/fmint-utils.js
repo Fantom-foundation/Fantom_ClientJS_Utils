@@ -190,12 +190,77 @@ function fMintRepayTokenTx(fMintContract, tokenAddress, amount) {
     };
 }
 
+/**
+ * fMintClaimRewardTx creates a base transaction for claiming
+ * rewards from over-collateralized mint.
+ *
+ * @param {string} fMintRewardContract Address of the fMint Reward Distribution contract.
+ * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
+ */
+function fMintClaimRewardTx(fMintRewardContract) {
+    // create web3.js instance
+    const web3 = new Web3();
+
+    // make the transaction
+    return {
+        nonce: undefined,
+        gasPrice: undefined,
+        gasLimit: DEFAULT_GAS_LIMIT,
+        to: fMintRewardContract,
+        value: ZERO_AMOUNT,
+        data: web3.eth.abi.encodeFunctionCall({
+            "constant": false,
+            "inputs": [],
+            "name": "mustRewardClaim",
+            "outputs": [],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, []),
+        chainId: OPERA_CHAIN_ID
+    };
+}
+
+/**
+ * fMintPushRewardTx creates a base transaction for pushing unlocked rewards
+ * to the reward distribution. Any user can initiate the reward push to start
+ * earning.
+ *
+ * @param {string} fMintRewardContract Address of the fMint Reward Distribution contract.
+ * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
+ */
+function fMintPushRewardTx(fMintRewardContract) {
+    // create web3.js instance
+    const web3 = new Web3();
+
+    // make the transaction
+    return {
+        nonce: undefined,
+        gasPrice: undefined,
+        gasLimit: DEFAULT_GAS_LIMIT,
+        to: fMintRewardContract,
+        value: ZERO_AMOUNT,
+        data: web3.eth.abi.encodeFunctionCall({
+            "constant": false,
+            "inputs": [],
+            "name": "mustRewardPush",
+            "outputs": [],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, []),
+        chainId: OPERA_CHAIN_ID
+    };
+}
+
 // what we export here
 export default {
     fMintDepositTokenTx,
     fMintWithdrawTokenTx,
     fMintMintTokenTx,
     fMintRepayTokenTx,
+    fMintClaimRewardTx,
+    fMintPushRewardTx,
     OPERA_CHAIN_ID,
     TESTNET_CHAIN_ID
 };
