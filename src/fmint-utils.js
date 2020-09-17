@@ -147,6 +147,44 @@ function fMintMintTokenTx(fMintContract, tokenAddress, amount) {
 }
 
 /**
+ * fMintMintTokenMaxTx creates a base transaction for minting
+ * the highest possible amount of target tokens against outstanding collateral.
+ *
+ * @param {string} fMintContract
+ * @param {string} tokenAddress
+ * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
+ */
+function fMintMintTokenMaxTx(fMintContract, tokenAddress) {
+    // create web3.js instance
+    const web3 = new Web3();
+
+    // make the transaction
+    return {
+        nonce: undefined,
+        gasPrice: undefined,
+        gasLimit: DEFAULT_GAS_LIMIT,
+        to: fMintContract,
+        value: ZERO_AMOUNT,
+        data: web3.eth.abi.encodeFunctionCall({
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "address",
+                    "name": "_token",
+                    "type": "address"
+                }
+            ],
+            "name": "mustMintMax",
+            "outputs": [],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, [tokenAddress]),
+        chainId: OPERA_CHAIN_ID
+    };
+}
+
+/**
  * fMintRepayTokenTx creates a base transaction for burning
  * specified amount of target tokens to unlock outstanding collateral.
  *
@@ -186,6 +224,44 @@ function fMintRepayTokenTx(fMintContract, tokenAddress, amount) {
             "stateMutability": "nonpayable",
             "type": "function"
         }, [tokenAddress, amount]),
+        chainId: OPERA_CHAIN_ID
+    };
+}
+
+/**
+ * fMintRepayTokenMaxTx creates a base transaction for burning
+ * maxim amount of tokens from the account debt as possible.
+ *
+ * @param {string} fMintContract
+ * @param {string} tokenAddress
+ * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
+ */
+function fMintRepayTokenMaxTx(fMintContract, tokenAddress) {
+    // create web3.js instance
+    const web3 = new Web3();
+
+    // make the transaction
+    return {
+        nonce: undefined,
+        gasPrice: undefined,
+        gasLimit: DEFAULT_GAS_LIMIT,
+        to: fMintContract,
+        value: ZERO_AMOUNT,
+        data: web3.eth.abi.encodeFunctionCall({
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "address",
+                    "name": "_token",
+                    "type": "address"
+                }
+            ],
+            "name": "mustRepayMax",
+            "outputs": [],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, [tokenAddress]),
         chainId: OPERA_CHAIN_ID
     };
 }
@@ -258,7 +334,9 @@ export default {
     fMintDepositTokenTx,
     fMintWithdrawTokenTx,
     fMintMintTokenTx,
+    fMintMintTokenMaxTx,
     fMintRepayTokenTx,
+    fMintRepayTokenMaxTx,
     fMintClaimRewardTx,
     fMintPushRewardTx,
     OPERA_CHAIN_ID,
