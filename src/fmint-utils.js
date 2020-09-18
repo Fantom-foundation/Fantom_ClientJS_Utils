@@ -1,10 +1,6 @@
 // import needed libs
 import Web3 from "web3";
 
-// DEFAULT_GAS_LIMIT represents the maximum amount of gas we are willing
-// to pay for the DeFi calls.
-const DEFAULT_GAS_LIMIT = '0x2dc6c0';
-
 // ZERO_AMOUNT represents zero amount transferred on some calls.
 const ZERO_AMOUNT = '0x0';
 
@@ -21,7 +17,7 @@ const TESTNET_CHAIN_ID = '0xfa2';
  * @param {string} fMintContract
  * @param {string} tokenAddress
  * @param {string|{BN}} amount
- * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
+ * @return {{data: string, chainId: string, to: string, value: string}}
  */
 function fMintDepositTokenTx(fMintContract, tokenAddress, amount) {
     // create web3.js instance
@@ -29,9 +25,6 @@ function fMintDepositTokenTx(fMintContract, tokenAddress, amount) {
 
     // make the transaction
     return {
-        nonce: undefined,
-        gasPrice: undefined,
-        gasLimit: DEFAULT_GAS_LIMIT,
         to: fMintContract,
         value: ZERO_AMOUNT,
         data: web3.eth.abi.encodeFunctionCall({
@@ -65,7 +58,7 @@ function fMintDepositTokenTx(fMintContract, tokenAddress, amount) {
  * @param {string} fMintContract
  * @param {string} tokenAddress
  * @param {string|{BN}} amount
- * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
+ * @return {{data: string, chainId: string, to: string, value: string}}
  */
 function fMintWithdrawTokenTx(fMintContract, tokenAddress, amount) {
     // create web3.js instance
@@ -73,9 +66,6 @@ function fMintWithdrawTokenTx(fMintContract, tokenAddress, amount) {
 
     // make the transaction
     return {
-        nonce: undefined,
-        gasPrice: undefined,
-        gasLimit: DEFAULT_GAS_LIMIT,
         to: fMintContract,
         value: ZERO_AMOUNT,
         data: web3.eth.abi.encodeFunctionCall({
@@ -109,7 +99,7 @@ function fMintWithdrawTokenTx(fMintContract, tokenAddress, amount) {
  * @param {string} fMintContract
  * @param {string} tokenAddress
  * @param {string|{BN}} amount
- * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
+ * @return {{data: string, chainId: string, to: string, value: string}}
  */
 function fMintMintTokenTx(fMintContract, tokenAddress, amount) {
     // create web3.js instance
@@ -117,9 +107,6 @@ function fMintMintTokenTx(fMintContract, tokenAddress, amount) {
 
     // make the transaction
     return {
-        nonce: undefined,
-        gasPrice: undefined,
-        gasLimit: DEFAULT_GAS_LIMIT,
         to: fMintContract,
         value: ZERO_AMOUNT,
         data: web3.eth.abi.encodeFunctionCall({
@@ -152,17 +139,23 @@ function fMintMintTokenTx(fMintContract, tokenAddress, amount) {
  *
  * @param {string} fMintContract
  * @param {string} tokenAddress
- * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
+ * @param {string|{BN}|undefined} targetRatio4dec
+ * @return {{data: string, chainId: string, to: string, value: string}}
  */
-function fMintMintTokenMaxTx(fMintContract, tokenAddress) {
+function fMintMintTokenMaxTx(fMintContract, tokenAddress, targetRatio4dec) {
     // create web3.js instance
     const web3 = new Web3();
 
+    // use default target ratio, if not set
+    if ("undefined" == typeof targetRatio4dec) {
+        // this is the default ration 300%
+        // with 4 digits precision and encoded to hex
+        // the actual value is: 30000
+        targetRatio4dec = "0x7530";
+    }
+
     // make the transaction
     return {
-        nonce: undefined,
-        gasPrice: undefined,
-        gasLimit: DEFAULT_GAS_LIMIT,
         to: fMintContract,
         value: ZERO_AMOUNT,
         data: web3.eth.abi.encodeFunctionCall({
@@ -172,6 +165,11 @@ function fMintMintTokenMaxTx(fMintContract, tokenAddress) {
                     "internalType": "address",
                     "name": "_token",
                     "type": "address"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "_ratio",
+                    "type": "uint256"
                 }
             ],
             "name": "mustMintMax",
@@ -179,7 +177,7 @@ function fMintMintTokenMaxTx(fMintContract, tokenAddress) {
             "payable": false,
             "stateMutability": "nonpayable",
             "type": "function"
-        }, [tokenAddress]),
+        }, [tokenAddress, targetRatio4dec]),
         chainId: OPERA_CHAIN_ID
     };
 }
@@ -191,7 +189,7 @@ function fMintMintTokenMaxTx(fMintContract, tokenAddress) {
  * @param {string} fMintContract
  * @param {string} tokenAddress
  * @param {string|{BN}} amount
- * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
+ * @return {{data: string, chainId: string, to: string, value: string}}
  */
 function fMintRepayTokenTx(fMintContract, tokenAddress, amount) {
     // create web3.js instance
@@ -199,9 +197,6 @@ function fMintRepayTokenTx(fMintContract, tokenAddress, amount) {
 
     // make the transaction
     return {
-        nonce: undefined,
-        gasPrice: undefined,
-        gasLimit: DEFAULT_GAS_LIMIT,
         to: fMintContract,
         value: ZERO_AMOUNT,
         data: web3.eth.abi.encodeFunctionCall({
@@ -234,7 +229,7 @@ function fMintRepayTokenTx(fMintContract, tokenAddress, amount) {
  *
  * @param {string} fMintContract
  * @param {string} tokenAddress
- * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
+ * @return {{data: string, chainId: string, to: string, value: string}}
  */
 function fMintRepayTokenMaxTx(fMintContract, tokenAddress) {
     // create web3.js instance
@@ -242,9 +237,6 @@ function fMintRepayTokenMaxTx(fMintContract, tokenAddress) {
 
     // make the transaction
     return {
-        nonce: undefined,
-        gasPrice: undefined,
-        gasLimit: DEFAULT_GAS_LIMIT,
         to: fMintContract,
         value: ZERO_AMOUNT,
         data: web3.eth.abi.encodeFunctionCall({
@@ -271,7 +263,7 @@ function fMintRepayTokenMaxTx(fMintContract, tokenAddress) {
  * rewards from over-collateralized mint.
  *
  * @param {string} fMintRewardContract Address of the fMint Reward Distribution contract.
- * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
+ * @return {{data: string, chainId: string, to: string, value: string}}
  */
 function fMintClaimRewardTx(fMintRewardContract) {
     // create web3.js instance
@@ -279,9 +271,6 @@ function fMintClaimRewardTx(fMintRewardContract) {
 
     // make the transaction
     return {
-        nonce: undefined,
-        gasPrice: undefined,
-        gasLimit: DEFAULT_GAS_LIMIT,
         to: fMintRewardContract,
         value: ZERO_AMOUNT,
         data: web3.eth.abi.encodeFunctionCall({
@@ -303,7 +292,7 @@ function fMintClaimRewardTx(fMintRewardContract) {
  * earning.
  *
  * @param {string} fMintRewardContract Address of the fMint Reward Distribution contract.
- * @return {{gasLimit: string, data: string, chainId: string, to: string, nonce: undefined, value: string, gasPrice: undefined}}
+ * @return {{data: string, chainId: string, to: string, value: string}}
  */
 function fMintPushRewardTx(fMintRewardContract) {
     // create web3.js instance
@@ -311,9 +300,6 @@ function fMintPushRewardTx(fMintRewardContract) {
 
     // make the transaction
     return {
-        nonce: undefined,
-        gasPrice: undefined,
-        gasLimit: DEFAULT_GAS_LIMIT,
         to: fMintRewardContract,
         value: ZERO_AMOUNT,
         data: web3.eth.abi.encodeFunctionCall({
