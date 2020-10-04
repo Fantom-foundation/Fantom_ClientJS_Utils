@@ -19,7 +19,47 @@ const {abi: UNISWAP_ROUTER_ABI} = require('./abi/uniswap-router');
 function uniswapNativeTokenAddress(web3, routerAddress) {
     // access the contract
     const contract = new web3.eth.Contract(UNISWAP_ROUTER_ABI, routerAddress);
-    return contract.methods.wFTM().call();
+    return contract.methods.WETH().call();
+}
+
+/**
+ * uniswapAmountsOut returns an array of intermediate and output amounts
+ * for the given exact input amount and the Uniswap path represented
+ * by an array of token addresses. If you want to use native FTM token
+ * on the input, or output, use Wrapped FTM token address instead.
+ *
+ * @param {Web3} web3
+ * @param {string} routerAddress
+ * @param {string|{BN}} amountIn
+ * @param {[string]} path
+ * @returns Promise<[BN]>
+ */
+function uniswapAmountsOut(web3, routerAddress, amountIn, path) {
+    // access the contract and make sure to access it with the latest confirmed block context
+    const contract = new web3.eth.Contract(UNISWAP_ROUTER_ABI, routerAddress);
+    contract.defaultBlock = "latest";
+
+    return contract.methods.getAmountsOut(amountIn, path).call();
+}
+
+/**
+ * uniswapAmountsIn returns an array of intermediate and input amounts
+ * for the given exact output amount and the Uniswap path represented
+ * by an array of token addresses. If you want to use native FTM token
+ * on the input, or output, use Wrapped FTM token address instead.
+ *
+ * @param {Web3} web3
+ * @param {string} routerAddress
+ * @param {string|{BN}} amountOut
+ * @param {[string]} path
+ * @returns Promise<[BN]>
+ */
+function uniswapAmountsIn(web3, routerAddress, amountOut, path) {
+    // access the contract and make sure to access it with the latest confirmed block context
+    const contract = new web3.eth.Contract(UNISWAP_ROUTER_ABI, routerAddress);
+    contract.defaultBlock = "latest";
+
+    return contract.methods.getAmountsIn(amountOut, path).call();
 }
 
 /**
@@ -383,11 +423,458 @@ function uniswapRemoveLiquidityFtm(
     };
 }
 
+/**
+ * uniswapExactTokensForTokens creates a contract call transaction to swap between
+ * two tokens through the given swap path specified by an array of tokens where
+ * the first token is the entry one and the last token is the exit one. The input
+ * amount is exact and the output amount is specified by expected minimal quantity.
+ * Fuzziness of the call is towards the output. Allowance is required on input.
+ *
+ * @param {Web3} web3
+ * @param {string} routerAddress
+ * @param {string|{BN}} amountIn
+ * @param {string|{BN}} amountOutMin
+ * @param {[string]} path
+ * @param {string} to
+ * @param {string|{BN}} deadline
+ * @returns {{data: string, to: *, value: string}}
+ */
+function uniswapExactTokensForTokens(
+    web3,
+    routerAddress,
+    amountIn,
+    amountOutMin,
+    path,
+    to,
+    deadline
+) {
+    // make the transaction
+    return {
+        to: routerAddress,
+        value: ZERO_AMOUNT,
+        data: web3.eth.abi.encodeFunctionCall({
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "amountIn",
+                    "type": "uint256"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "amountOutMin",
+                    "type": "uint256"
+                },
+                {
+                    "internalType": "address[]",
+                    "name": "path",
+                    "type": "address[]"
+                },
+                {
+                    "internalType": "address",
+                    "name": "to",
+                    "type": "address"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "deadline",
+                    "type": "uint256"
+                }
+            ],
+            "name": "swapExactTokensForTokens",
+            "outputs": [
+                {
+                    "internalType": "uint256[]",
+                    "name": "amounts",
+                    "type": "uint256[]"
+                }
+            ],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, [amountIn, amountOutMin, path, to, deadline])
+    };
+}
+
+/**
+ * uniswapExactFtmForTokens creates a contract call transaction to swap between
+ * two tokens through the given swap path specified by an array of tokens where
+ * the first token is the Wrapped Native FTM one and the last token is the exit one.
+ * The input amount is exact and the output amount is specified by expected minimal quantity.
+ * Fuzziness of the call is towards the output. Native token in the input amount will be send
+ * from the singing account.
+ *
+ * @param {Web3} web3
+ * @param {string} routerAddress
+ * @param {string|{BN}} amountIn
+ * @param {string|{BN}} amountOutMin
+ * @param {[string]} path
+ * @param {string} to
+ * @param {string|{BN}} deadline
+ * @returns {{data: string, to: *, value: string}}
+ */
+function uniswapExactFtmForTokens(
+    web3,
+    routerAddress,
+    amountIn,
+    amountOutMin,
+    path,
+    to,
+    deadline
+) {
+    // make the transaction
+    return {
+        to: routerAddress,
+        value: web3Utils.numberToHex(amountIn),
+        data: web3.eth.abi.encodeFunctionCall({
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "amountOutMin",
+                    "type": "uint256"
+                },
+                {
+                    "internalType": "address[]",
+                    "name": "path",
+                    "type": "address[]"
+                },
+                {
+                    "internalType": "address",
+                    "name": "to",
+                    "type": "address"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "deadline",
+                    "type": "uint256"
+                }
+            ],
+            "name": "swapExactETHForTokens",
+            "outputs": [
+                {
+                    "internalType": "uint256[]",
+                    "name": "amounts",
+                    "type": "uint256[]"
+                }
+            ],
+            "payable": true,
+            "stateMutability": "payable",
+            "type": "function"
+        }, [amountOutMin, path, to, deadline])
+    };
+}
+
+/**
+ * uniswapTokensForExactTokens creates a contract call transaction to swap between
+ * two tokens through the given swap path specified by an array of tokens where
+ * the first token is the entry one and the last token is the exit one. The output
+ * amount is exact and the input amount is specified by maximal allowed quantity.
+ * Fuzziness of the call is towards the input. Sufficient allowance is required
+ * on input token to cover the max amount offered.
+ *
+ * @param {Web3} web3
+ * @param {string} routerAddress
+ * @param {string|{BN}} amountOut
+ * @param {string|{BN}} amountInMax
+ * @param {[string]} path
+ * @param {string} to
+ * @param {string|{BN}} deadline
+ * @returns {{data: string, to: *, value: string}}
+ */
+function uniswapTokensForExactTokens(
+    web3,
+    routerAddress,
+    amountOut,
+    amountInMax,
+    path,
+    to,
+    deadline
+) {
+    // make the transaction
+    return {
+        to: routerAddress,
+        value: ZERO_AMOUNT,
+        data: web3.eth.abi.encodeFunctionCall({
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "amountOut",
+                    "type": "uint256"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "amountInMax",
+                    "type": "uint256"
+                },
+                {
+                    "internalType": "address[]",
+                    "name": "path",
+                    "type": "address[]"
+                },
+                {
+                    "internalType": "address",
+                    "name": "to",
+                    "type": "address"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "deadline",
+                    "type": "uint256"
+                }
+            ],
+            "name": "swapTokensForExactTokens",
+            "outputs": [
+                {
+                    "internalType": "uint256[]",
+                    "name": "amounts",
+                    "type": "uint256[]"
+                }
+            ],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, [amountOut, amountInMax, path, to, deadline])
+    };
+}
+
+/**
+ * uniswapFtmForExactTokens creates a contract call transaction to swap between
+ * two tokens through the given swap path specified by an array of tokens where
+ * the first token is the Wrapped Native FTM and the last token is the exit one.
+ * The output amount is exact and the input amount is specified by maximal allowed
+ * quantity. Fuzziness of the call is towards the input. Native FTM tokens
+ * in the maximal offered amount will be send to the contract, tokens remaining
+ * after the swap will be returned back.
+ *
+ * @param {Web3} web3
+ * @param {string} routerAddress
+ * @param {string|{BN}} amountOut
+ * @param {string|{BN}} amountInMax
+ * @param {[string]} path
+ * @param {string} to
+ * @param {string|{BN}} deadline
+ * @returns {{data: string, to: *, value: string}}
+ */
+function uniswapFtmForExactTokens(
+    web3,
+    routerAddress,
+    amountOut,
+    amountInMax,
+    path,
+    to,
+    deadline
+) {
+    // make the transaction
+    return {
+        to: routerAddress,
+        value: web3Utils.numberToHex(amountInMax),
+        data: web3.eth.abi.encodeFunctionCall({
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "amountOut",
+                    "type": "uint256"
+                },
+                {
+                    "internalType": "address[]",
+                    "name": "path",
+                    "type": "address[]"
+                },
+                {
+                    "internalType": "address",
+                    "name": "to",
+                    "type": "address"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "deadline",
+                    "type": "uint256"
+                }
+            ],
+            "name": "swapETHForExactTokens",
+            "outputs": [
+                {
+                    "internalType": "uint256[]",
+                    "name": "amounts",
+                    "type": "uint256[]"
+                }
+            ],
+            "payable": true,
+            "stateMutability": "payable",
+            "type": "function"
+        }, [amountOut, path, to, deadline])
+    };
+}
+
+/**
+ * uniswapTokensForExactFtm creates a contract call transaction to swap between
+ * two tokens through the given swap path specified by an array of tokens where
+ * the first token is the entry one and the last token is the Wrapped FTM. The output
+ * amount is exact and the input amount is specified by maximal allowed quantity.
+ * Fuzziness of the call is towards the input. Sufficient allowance is required
+ * on input token to cover the max amount offered. Native FTM is returned on success.
+ *
+ * @param {Web3} web3
+ * @param {string} routerAddress
+ * @param {string|{BN}} amountOut
+ * @param {string|{BN}} amountInMax
+ * @param {[string]} path
+ * @param {string} to
+ * @param {string|{BN}} deadline
+ * @returns {{data: string, to: *, value: string}}
+ */
+function uniswapTokensForExactFtm(
+    web3,
+    routerAddress,
+    amountOut,
+    amountInMax,
+    path,
+    to,
+    deadline
+) {
+    // make the transaction
+    return {
+        to: routerAddress,
+        value: ZERO_AMOUNT,
+        data: web3.eth.abi.encodeFunctionCall({
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "amountOut",
+                    "type": "uint256"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "amountInMax",
+                    "type": "uint256"
+                },
+                {
+                    "internalType": "address[]",
+                    "name": "path",
+                    "type": "address[]"
+                },
+                {
+                    "internalType": "address",
+                    "name": "to",
+                    "type": "address"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "deadline",
+                    "type": "uint256"
+                }
+            ],
+            "name": "swapTokensForExactETH",
+            "outputs": [
+                {
+                    "internalType": "uint256[]",
+                    "name": "amounts",
+                    "type": "uint256[]"
+                }
+            ],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, [amountOut, amountInMax, path, to, deadline])
+    };
+}
+
+/**
+ * uniswapExactTokensForFtm creates a contract call transaction to swap between
+ * two tokens through the given swap path specified by an array of tokens where
+ * the first token is the entry one and the last token is the Wrapped FTM. The input
+ * amount is exact and the output amount is specified by minimal expected quantity.
+ * Fuzziness of the call is towards the output. Sufficient allowance is required
+ * on input token to cover the max amount offered. Native FTM is returned on success.
+ *
+ * @param {Web3} web3
+ * @param {string} routerAddress
+ * @param {string|{BN}} amountIn
+ * @param {string|{BN}} amountOutMin
+ * @param {[string]} path
+ * @param {string} to
+ * @param {string|{BN}} deadline
+ * @returns {{data: string, to: *, value: string}}
+ */
+function uniswapExactTokensForFtm(
+    web3,
+    routerAddress,
+    amountIn,
+    amountOutMin,
+    path,
+    to,
+    deadline
+) {
+    // make the transaction
+    return {
+        to: routerAddress,
+        value: ZERO_AMOUNT,
+        data: web3.eth.abi.encodeFunctionCall({
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "amountIn",
+                    "type": "uint256"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "amountOutMin",
+                    "type": "uint256"
+                },
+                {
+                    "internalType": "address[]",
+                    "name": "path",
+                    "type": "address[]"
+                },
+                {
+                    "internalType": "address",
+                    "name": "to",
+                    "type": "address"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "deadline",
+                    "type": "uint256"
+                }
+            ],
+            "name": "swapExactTokensForETH",
+            "outputs": [
+                {
+                    "internalType": "uint256[]",
+                    "name": "amounts",
+                    "type": "uint256[]"
+                }
+            ],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, [amountIn, amountOutMin, path, to, deadline])
+    };
+}
+
 // what we export here
 export default {
+    /************ utility ************/
     uniswapNativeTokenAddress,
+    uniswapAmountsOut,
+    uniswapAmountsIn,
+
+    /*********** liquidity ***********/
     uniswapAddLiquidity,
     uniswapAddLiquidityFtm,
     uniswapRemoveLiquidity,
-    uniswapRemoveLiquidityFtm
+    uniswapRemoveLiquidityFtm,
+
+    /*********** SWAP calls **********/
+    uniswapExactTokensForTokens,
+    uniswapExactFtmForTokens,
+    uniswapTokensForExactTokens,
+    uniswapFtmForExactTokens,
+    uniswapTokensForExactFtm,
+    uniswapExactTokensForFtm,
 };
