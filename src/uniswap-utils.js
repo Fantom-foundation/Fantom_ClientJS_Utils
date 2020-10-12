@@ -424,6 +424,49 @@ function uniswapRemoveLiquidityFtm(
 }
 
 /**
+ * uniswapApproveShareTransfer creates a contract call transaction to allow transfer
+ * of Uniswap pair share tokens from your address by the router.
+ *
+ * @param {Web3} web3
+ * @param {string} routerAddress
+ * @param {string} pairAddress
+ * @param {string|{BN}} amount
+ */
+function uniswapApproveShareTransfer(web3, routerAddress, pairAddress, amount) {
+    // make the transaction
+    return {
+        to: pairAddress,
+        value: ZERO_AMOUNT,
+        data: web3.eth.abi.encodeFunctionCall({
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "address",
+                    "name": "spender",
+                    "type": "address"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "value",
+                    "type": "uint256"
+                }
+            ],
+            "name": "approve",
+            "outputs": [
+                {
+                    "internalType": "bool",
+                    "name": "",
+                    "type": "bool"
+                }
+            ],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, [routerAddress, amount])
+    };
+}
+
+/**
  * uniswapExactTokensForTokens creates a contract call transaction to swap between
  * two tokens through the given swap path specified by an array of tokens where
  * the first token is the entry one and the last token is the exit one. The input
@@ -869,6 +912,7 @@ export default {
     uniswapAddLiquidityFtm,
     uniswapRemoveLiquidity,
     uniswapRemoveLiquidityFtm,
+    uniswapApproveShareTransfer,
 
     /*********** SWAP calls **********/
     uniswapExactTokensForTokens,
