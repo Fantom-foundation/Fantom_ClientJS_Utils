@@ -570,6 +570,98 @@ function unstashRewardsTx(web3Client) {
 }
 
 /**
+ * sfcTokenizeLockedStake generates a transaction instructing given SFC stake tokenizer
+ * contract to mint tokenized stake sFTM to the sender address representing their locked
+ * stake or delegation.
+ *
+ * @param {Web3} web3Client
+ * @param {string} tokenizer Address of the SFC tokenizer contract.
+ * @param {int} stakerId Identifier of the validator the stake/delegation belongs to.
+ * @return {{data: string, to: *, value: string, chainId: string}}
+ */
+function sfcTokenizeLockedStake(web3Client, tokenizer, stakerId) {
+    // validate staking id
+    if (stakerId <= 0) {
+        throw 'Validator id must be positive unsigned integer value.';
+    }
+
+    // validate staking id to be uint
+    if (!Number.isInteger(stakerId) || (0 >= stakerId)) {
+        throw 'Validator id must be positive unsigned integer value.';
+    }
+
+    return {
+        to: tokenizer,
+        value: ZERO_AMOUNT,
+        data: encodeCall(web3Client, {
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "toStakerID",
+                    "type": "uint256"
+                }
+            ],
+            "name": "mintSFTM",
+            "outputs": [],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, [stakerId]),
+        chainId: OPERA_CHAIN_ID
+    };
+}
+
+/**
+ * sfcRedeemTokenizedStake generates a transaction instructing given SFC stake tokenizer
+ * contract to redeem tokens of a tokenized stake sFTM from the sender address.
+ * Please note, the tokenizer must be granted allowance on the sFTM token
+ * at least for the redeemed amount of tokens.
+ *
+ * @param {Web3} web3Client
+ * @param {string} tokenizer Address of the SFC tokenizer contract.
+ * @param {int} stakerId Identifier of the validator the stake/delegation belongs to.
+ * @param {number} amount Amount of FTM tokes to be prepared for withdraw.
+ * @return {{data: string, to: *, value: string, chainId: string}}
+ */
+function sfcRedeemTokenizedStake(web3Client, tokenizer, stakerId, amount) {
+    // validate staking id
+    if (stakerId <= 0) {
+        throw 'Validator id must be positive unsigned integer value.';
+    }
+
+    // validate staking id to be uint
+    if (!Number.isInteger(stakerId) || (0 >= stakerId)) {
+        throw 'Validator id must be positive unsigned integer value.';
+    }
+
+    return {
+        to: tokenizer,
+        value: ZERO_AMOUNT,
+        data: encodeCall(web3Client, {
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "stakerID",
+                    "type": "uint256"
+                }, {
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                }
+            ],
+            "name": "redeemSFTM",
+            "outputs": [],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, [stakerId, amount]),
+        chainId: OPERA_CHAIN_ID
+    };
+}
+
+/**
  * ballotVote creates a transaction executing a vote on specified ballot smart contract.
  *
  * Note: The vote has to be a correct and valid ballot proposal index.
@@ -623,5 +715,7 @@ export default {
     withdrawPartTx,
     lockupDelegationTx,
     unstashRewardsTx,
+    sfcTokenizeLockedStake,
+    sfcRedeemTokenizedStake,
     ballotVote
 };
