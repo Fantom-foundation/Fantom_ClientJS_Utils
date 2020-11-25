@@ -5,8 +5,8 @@ import Web3 from 'web3';
 const ZERO_AMOUNT = '0x0';
 
 /**
- * governanceVote creates a contract call transaction to add liquidity
- * to a Uniswap pool defined by pair of tokens.
+ * governanceVote creates a contract call transaction to post a vote
+ * to the governance contract.
  *
  * @param {Web3} web3
  * @param {string} govAddress
@@ -59,7 +59,56 @@ function governanceVote(
     };
 }
 
+/**
+ * governanceCancelVote creates a contract call transaction to cancel
+ * a vote user previously posted towards a given proposal.
+ *
+ * @param {Web3} web3
+ * @param {string} govAddress
+ * @param {string} delegatedTo For self-delegation use the sender address.
+ * @param {string|{BN}} proposalId
+ * @returns {{data: string, to: *, value: string}}
+ */
+function governanceCancelVote(
+    web3,
+    govAddress,
+    delegatedTo,
+    proposalId
+) {
+    // create web3 instance if needed
+    if (null === web3) {
+        web3 = new Web3();
+    }
+
+    // make the transaction
+    return {
+        to: govAddress,
+        value: ZERO_AMOUNT,
+        data: web3.eth.abi.encodeFunctionCall({
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "address",
+                    "name": "delegatedTo",
+                    "type": "address"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "proposalID",
+                    "type": "uint256"
+                }
+            ],
+            "name": "cancelVote",
+            "outputs": [],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, [delegatedTo, proposalId])
+    };
+}
+
 // what we export here
 export default {
-    governanceVote
+    governanceVote,
+    governanceCancelVote
 };
