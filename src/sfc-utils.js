@@ -26,7 +26,6 @@ function encodeCall(client, abi, params) {
     if ("object" !== typeof client || !client.hasOwnProperty('eth')) {
         client = new Web3();
     }
-
     return client.eth.abi.encodeFunctionCall(abi, params);
 }
 
@@ -34,17 +33,12 @@ function encodeCall(client, abi, params) {
  * createDelegationTx creates a new delegation transaction structure
  * for the given amount and validator index.
  *
- * @param {number} amount Amount of FTM tokes to delegate.
+ * @param {number|BN|string} amount Amount of FTM tokens in WEI units to delegate.
  * @param {int} to Id of the validator to delegate to.
  * @param {Web3|undefined} web3Client Optional instance of an initialized Web3 client.
  * @return {{data: string, to: *, value: string}}
  */
 function createDelegationTx(amount, to, web3Client) {
-    // validate amount
-    if (amount < 1) {
-        throw 'Amount value can not be lower than minimal delegation amount.';
-    }
-
     // validate staking id
     if (to <= 0) {
         throw 'Validator id must be positive unsigned integer value.';
@@ -59,7 +53,7 @@ function createDelegationTx(amount, to, web3Client) {
     return {
         chainId: OPERA_CHAIN_ID,
         to: SFC_CONTRACT_ADDRESS, /* SFC Contract */
-        value: web3Utils.numberToHex(web3Utils.toWei(amount.toString(10), "ether")),
+        value: web3Utils.numberToHex(amount),
         data: encodeCall(web3Client, {
             "constant": false,
             "inputs": [
@@ -85,7 +79,7 @@ function createDelegationTx(amount, to, web3Client) {
  * Note: A delegation has to exist already on the source address
  * for the transaction to be accepted on the server.
  *
- * @param {number} amount Amount of FTM tokes to delegate.
+ * @param {number|string|BN} amount Amount of FTM tokens in WEI units to delegate.
  * @param {int} to Id of the validator to delegate to.
  * @param {Web3|undefined} web3Client Optional instance of an initialized Web3 client.
  * @return {{data: string, to: *, value: string}}
@@ -108,7 +102,6 @@ function claimDelegationRewardsCompoundTx(maxEpochs, to, web3Client) {
     if (!Number.isInteger(to) || (0 >= to)) {
         throw 'Validator id must be positive unsigned integer value.';
     }
-
     return {
         chainId: OPERA_CHAIN_ID,
         to: SFC_CONTRACT_ADDRESS, /* SFC Contract */
@@ -205,7 +198,7 @@ function prepareToWithdrawDelegationTx(to, web3Client) {
  *
  * @param {number} requestId Unique and unused identifier of the withdraw request.
  * @param {int} to Id of the validator the delegation belongs to.
- * @param {number} amount Amount of FTM tokes to be prepared for withdraw.
+ * @param {number|string|BN} amount Amount of FTM tokens in WEI units to be prepared for withdraw.
  * @param {Web3|undefined} web3Client Optional instance of an initialized Web3 client.
  * @return {{data: string, to: *, value: string}}
  */
@@ -213,11 +206,6 @@ function prepareToWithdrawDelegationPartTx(requestId, to, amount, web3Client) {
     // request id has to be uint
     if (!Number.isInteger(requestId) || (0 >= requestId)) {
         throw 'Request id must be a valid numeric identifier.';
-    }
-
-    // validate amount
-    if (!Number.isFinite(amount) || amount < 1) {
-        throw 'Amount value can not be lower than minimal withdraw amount.';
     }
 
     // validate staking id to be uint
@@ -256,7 +244,7 @@ function prepareToWithdrawDelegationPartTx(requestId, to, amount, web3Client) {
         }, [
             web3Utils.numberToHex(to),
             web3Utils.numberToHex(requestId),
-            web3Utils.numberToHex(web3Utils.toWei(amount.toString(10), "ether"))])
+            web3Utils.numberToHex(amount)])
     };
 }
 
@@ -327,7 +315,7 @@ function withdrawDelegationTx(to, web3Client) {
  *
  * @param {int} to Id of the validator the delegation belongs to.
  * @param {int} duration Number of seconds the lock should be be activated.
- * @param {number} amount Amount of FTM tokes to be prepared for withdraw.
+ * @param {number|string|BN} amount Amount of FTM tokes in WEI format to be prepared for withdraw.
  * @param {Web3|undefined} web3Client Optional instance of an initialized Web3 client.
  * @return {{data: string, to: *, value: string}}
  */
@@ -343,17 +331,13 @@ function lockupDelegationTx(to, duration, amount, web3Client) {
     }
 
     // validate minimal duration
-    if (!Number.isInteger(duration) || duration < (14 * 86400)) {
+    if (!Number.isInteger(duration)) {
         throw 'The lock duration must be at least 14 days.';
     }
 
     // validate maximal duration
     if (duration > (365 * 86400)) {
         throw 'The lock duration must be at most 365 days.';
-    }
-    // validate amount
-    if (!Number.isFinite(amount) || amount < 1) {
-        throw 'Amount value can not be lower than minimal withdraw amount.';
     }
 
     return {
@@ -384,7 +368,11 @@ function lockupDelegationTx(to, duration, amount, web3Client) {
             "payable": false,
             "stateMutability": "nonpayable",
             "type": "function"
-        }, [web3Utils.numberToHex(to), web3Utils.numberToHex(duration), web3Utils.numberToHex(amount)])
+        }, [
+            web3Utils.numberToHex(to),
+            web3Utils.numberToHex(duration),
+            web3Utils.numberToHex(amount)
+        ])
     };
 }
 
@@ -392,7 +380,7 @@ function lockupDelegationTx(to, duration, amount, web3Client) {
  * unlockDelegationTx creates a transaction for unlocking delegation.
  *
  * @param {int} to Id of the validator the delegation belongs to.
- * @param {number} amount Amount of FTM tokes to be prepared for withdraw.
+ * @param {number|string|BN} amount Amount of FTM tokens in WEI units to be prepared for withdraw.
  * @param {Web3|undefined} web3Client Optional instance of an initialized Web3 client.
  * @return {{data: string, to: *, value: string}}
  */
@@ -405,11 +393,6 @@ function unlockDelegationTx(to, amount, web3Client) {
     // validate staking id to be uint
     if (!Number.isInteger(to) || (0 >= to)) {
         throw 'Validator id must be positive unsigned integer value.';
-    }
-
-    // validate amount
-    if (!Number.isFinite(amount) || amount < 1) {
-        throw 'Amount value can not be lower than minimal withdraw amount.';
     }
 
     return {
@@ -441,7 +424,10 @@ function unlockDelegationTx(to, amount, web3Client) {
             "payable": false,
             "stateMutability": "nonpayable",
             "type": "function"
-        }, [web3Utils.numberToHex(to), web3Utils.numberToHex(amount)])
+        }, [
+            web3Utils.numberToHex(to),
+            web3Utils.numberToHex(amount)
+        ])
     };
 }
 
@@ -507,7 +493,7 @@ function sfcTokenizeLockedStake(web3Client, tokenizer, stakerId) {
  * @param {Web3} web3Client
  * @param {string} tokenizer Address of the SFC tokenizer contract.
  * @param {int} stakerId Identifier of the validator the stake/delegation belongs to.
- * @param {number} amount Amount of FTM tokes to be prepared for withdraw.
+ * @param {number|string|BN} amount Amount of FTM tokens in WEI units to be redeemed.
  * @return {{data: string, to: *, value: string, chainId: string}}
  */
 function sfcRedeemTokenizedStake(web3Client, tokenizer, stakerId, amount) {
@@ -542,7 +528,10 @@ function sfcRedeemTokenizedStake(web3Client, tokenizer, stakerId, amount) {
             "payable": false,
             "stateMutability": "nonpayable",
             "type": "function"
-        }, [stakerId, amount]),
+        }, [
+            web3Utils.numberToHex(stakerId),
+            web3Utils.numberToHex(amount)
+        ]),
         chainId: OPERA_CHAIN_ID
     };
 }
