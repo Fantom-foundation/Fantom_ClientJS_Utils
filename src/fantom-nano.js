@@ -18,7 +18,7 @@ export const FANTOM_CHAIN_ID = 0xfa;
 // CLA specified service class used by Fantom Ledger application
 const CLA = 0xe0;
 
-// INS specifies instructions supported by the Fanto Ledger app
+// INS specifies instructions supported by the Fantom Ledger app
 const INS = {
     GET_VERSION: 0x01,
     GET_PUBLIC_KEY: 0x10,

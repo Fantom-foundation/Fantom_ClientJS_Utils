@@ -32,8 +32,8 @@
     "web3-utils": "^1.2.11"
   },
   "devDependencies": {
-    "@babel/cli": "^7.11.5",
-    "@babel/core": "^7.11.5",
+    "@babel/cli": "^7.14.3",
+    "@babel/core": "^7.14.3",
     "@babel/plugin-proposal-class-properties": "^7.10.4",
     "@babel/plugin-transform-runtime": "^7.11.5",
     "@babel/preset-env": "^7.11.5",
@@ -43,9 +43,10 @@
   },
   "scripts": {
     "clean": "bash ./tools/clean.sh",
-    "build": "bash ./tools/build.sh",
-    "build-example": "babel --source-maps -d example/lib example/src",
-    "example": "npm run clean >/dev/null 2>&1 && npm run build > /dev/null 2>&1 && npm run build-example >/dev/null 2>&1 && node example/lib/example.js",
+    "help": "babel --help",
+    "build": "babel src --out-dir lib --source-maps --verbose --delete-dir-on-start",
+    "build-example": "babel example/src --source-maps --out-dir example/lib",
+    "example": "npm run clean >/dev/null 2>&1 && npm run build && npm run build-example && node example/lib/example.js",
     "test": "npm run build && mocha"
   },
   "babel": {

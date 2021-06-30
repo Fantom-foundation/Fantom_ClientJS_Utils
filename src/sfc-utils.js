@@ -196,18 +196,13 @@ function prepareToWithdrawDelegationTx(to, web3Client) {
  * withdrawal. The actual withdraw execution, available after a lock period, will use the same
  * request id to process the prepared withdrawal.
  *
- * @param {number} requestId Unique and unused identifier of the withdraw request.
+ * @param {number|string|BN} requestId Unique and unused identifier of the withdraw request.
  * @param {int} to Id of the validator the delegation belongs to.
  * @param {number|string|BN} amount Amount of FTM tokens in WEI units to be prepared for withdraw.
  * @param {Web3|undefined} web3Client Optional instance of an initialized Web3 client.
  * @return {{data: string, to: *, value: string}}
  */
 function prepareToWithdrawDelegationPartTx(requestId, to, amount, web3Client) {
-    // request id has to be uint
-    if (!Number.isInteger(requestId) || (0 >= requestId)) {
-        throw 'Request id must be a valid numeric identifier.';
-    }
-
     // validate staking id to be uint
     if (!Number.isInteger(to) || (0 >= to)) {
         throw 'Validator id must be positive unsigned integer value.';
@@ -314,7 +309,7 @@ function withdrawDelegationTx(to, web3Client) {
  * lockupDelegationTx creates a transaction for locking delegation.
  *
  * @param {int} to Id of the validator the delegation belongs to.
- * @param {int} duration Number of seconds the lock should be be activated.
+ * @param {int} duration Number of seconds the lock should be activated.
  * @param {number|string|BN} amount Amount of FTM tokes in WEI format to be prepared for withdraw.
  * @param {Web3|undefined} web3Client Optional instance of an initialized Web3 client.
  * @return {{data: string, to: *, value: string}}
@@ -364,6 +359,72 @@ function lockupDelegationTx(to, duration, amount, web3Client) {
                 }
             ],
             "name": "lockStake",
+            "outputs": [],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+        }, [
+            web3Utils.numberToHex(to),
+            web3Utils.numberToHex(duration),
+            web3Utils.numberToHex(amount)
+        ])
+    };
+}
+
+/**
+ * relockDelegationTx creates a transaction for re-locking delegation.
+ *
+ * @param {int} to Id of the validator the delegation belongs to.
+ * @param {int} duration Number of seconds the lock should be activated.
+ * @param {number|string|BN} amount Amount of FTM tokes in WEI format to be prepared for withdraw.
+ * @param {Web3|undefined} web3Client Optional instance of an initialized Web3 client.
+ * @return {{data: string, to: *, value: string}}
+ */
+function relockDelegationTx(to, duration, amount, web3Client) {
+    // validate staking id
+    if (to <= 0) {
+        throw 'Validator id must be positive unsigned integer value.';
+    }
+
+    // validate staking id to be uint
+    if (!Number.isInteger(to) || (0 >= to)) {
+        throw 'Validator id must be positive unsigned integer value.';
+    }
+
+    // validate minimal duration
+    if (!Number.isInteger(duration)) {
+        throw 'The lock duration must be at least 14 days.';
+    }
+
+    // validate maximal duration
+    if (duration > (365 * 86400)) {
+        throw 'The lock duration must be at most 365 days.';
+    }
+
+    return {
+        chainId: OPERA_CHAIN_ID,
+        to: SFC_CONTRACT_ADDRESS, /* SFC Contract */
+        value: ZERO_AMOUNT,
+        data: encodeCall(web3Client, {
+            "constant": false,
+            "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "toValidatorID",
+                    "type": "uint256"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "lockupDuration",
+                    "type": "uint256"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                }
+            ],
+            "name": "relockStake",
             "outputs": [],
             "payable": false,
             "stateMutability": "nonpayable",
@@ -548,6 +609,7 @@ export default {
     withdrawDelegationTx,
     withdrawPartTx,
     lockupDelegationTx,
+    relockDelegationTx,
     unlockDelegationTx,
     unstashRewardsTx,
     sfcTokenizeLockedStake,
